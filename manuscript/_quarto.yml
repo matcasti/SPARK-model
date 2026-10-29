@@ -15,7 +15,7 @@ website:
         text: Web-App
     right:
       - icon: github
-        href: https://github.com/matcasti/2026-06-BHA-SDE-model/
+        href: https://github.com/matcasti/SPARK-model/
 
 format:
   html:

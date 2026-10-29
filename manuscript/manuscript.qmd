@@ -430,7 +430,7 @@ The model is implemented in R (engine deposited with this article as model_code.
 
 # Data availability {.unnumbered}
 
-The PRCP recordings (Physiologic Response to Changes in Posture; <https://doi.org/10.13026/C2PC7R>) and the Fantasia database (<https://doi.org/10.13026/C2RG61>) are publicly available from PhysioNet under the Open Data Commons Attribution license; the repository downloads them with checksum verification (`make download`). The RR-interval series of the exercise cohort (266 recordings, without personal identifiers) are in the repository's `data-raw/tmst` folder. The analysis code and its configuration are at <https://github.com/matcasti/2026-06-BHA-SDE-model/>, and the figures, tables and numbers of this article are regenerated from them (`make data`, `make run`, `make render`). [PLACEHOLDER: DOI of the archived release of the repository (for example Zenodo) and its license.]
+The PRCP recordings (Physiologic Response to Changes in Posture; <https://doi.org/10.13026/C2PC7R>) and the Fantasia database (<https://doi.org/10.13026/C2RG61>) are publicly available from PhysioNet under the Open Data Commons Attribution license; the repository downloads them with checksum verification (`make download`). The RR-interval series of the exercise cohort (266 recordings, without personal identifiers) are in the repository's `data-raw/tmst` folder. The analysis code and its configuration are at <https://github.com/matcasti/SPARK-model/>, and the figures, tables and numbers of this article are regenerated from them (`make data`, `make run`, `make render`). [PLACEHOLDER: DOI of the archived release of the repository (for example Zenodo) and its license.]
 
 # Acknowledgements {.unnumbered}
 
