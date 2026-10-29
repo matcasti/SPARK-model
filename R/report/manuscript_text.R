@@ -124,8 +124,9 @@ narrate_identifiability <- function(ident) guarded("results/identifiability.rds"
   collapse <- function(spec) mean(m$collapse_frac[m$spec == spec], na.rm = TRUE)
   n_recordings <- length(unique(m$SubjectID))
   per_spec <- function(spec) sprintf(
-    "a median of %s distinct solutions per recording and one process absorbed essentially all variability in %s of the fits",
-    num(value(spec, "n_solutions"), 1), pct(collapse(spec)))
+    "a median of %s distinct solutions per recording and %s fits within 2 log-likelihood units of the best; among those, the SD of $\\ln\\tau_s$ was %s, the share of $x_p$ variance spanned a range of %s, and one process absorbed essentially all variability in %s of the fits",
+    num(value(spec, "n_solutions"), 1), num(value(spec, "n_equiv"), 1), num(value(spec, "sd_ln_tau_s_equiv")),
+    num(value(spec, "share_p_range_equiv")), pct(collapse(spec)))
 
   more_dispersed <- value("M0", "sd_ln_tau_s_equiv") > value("M3", "sd_ln_tau_s_equiv") * (1 + NARRATIVE$similar_rel) ||
     value("M0", "n_solutions") > value("M3", "n_solutions") * (1 + NARRATIVE$similar_rel) ||
@@ -150,8 +151,9 @@ narrate_identifiability <- function(ident) guarded("results/identifiability.rds"
   }
   paste0(
     "Without physiological information ($M_0$; ", n_recordings, " recordings), the multi-start fits of a recording reached ", per_spec("M0"),
-    ". Under the full specification ($M_3$), the number of distinct solutions per recording was ", compare_phrase(value("M3", "n_solutions"), value("M0", "n_solutions")), " that under $M_0$ (median ",
-    num(value("M3", "n_solutions"), 1), " versus ", num(value("M0", "n_solutions"), 1), "), and one process absorbed essentially all variability in ", pct(collapse("M3")), " versus ", pct(collapse("M0")), " of the fits (@tbl-ident-metrics). ",
+    ". Under the full specification ($M_3$), the corresponding values were: ", per_spec("M3"), ". ",
+    "The number of distinct solutions per recording under $M_3$ was ", compare_phrase(value("M3", "n_solutions"), value("M0", "n_solutions")), " that under $M_0$ (median ",
+    num(value("M3", "n_solutions"), 1), " versus ", num(value("M0", "n_solutions"), 1), "), and one process absorbed essentially all variability in ", pct(collapse("M3")), " versus ", pct(collapse("M0")), " of the fits. ",
     "The dispersion of $\\ln\\tau_s$ among near-equivalent fits under $M_3$ was ", compare_phrase(value("M3", "sd_ln_tau_s_equiv"), value("M0", "sd_ln_tau_s_equiv")),
     " that under $M_0$", if (length(larger_in)) paste0(" (larger under $M_0$ in ", count_of(length(larger_in), length(datasets)), " datasets: ", join_and(larger_in), ")") else "",
     if (small_both) "; it was small under both specifications, so the contrast rests mainly on the number of distinct solutions and on one-process solutions" else "",
@@ -167,12 +169,23 @@ narrate_constraints <- function(ident, sensitivity = NULL, sim_recovery = NULL, 
   extra <- ""
   m <- as.data.frame(ident$metrics)
   specs <- c("M0", "M1", "M2", "M3")
+  dispersion <- vapply(specs, function(s) spec_median(m, s, "sd_ln_tau_s_equiv"), numeric(1))
+  rmse <- vapply(specs, function(s) spec_median(m, s, "best_rmse_ms"), numeric(1))
+  in_range <- vapply(specs, function(s) mean(m$frac_in_phys_range[m$spec == s], na.rm = TRUE), numeric(1))
+  lowest <- names(which.min(dispersion))
+  rmse_gap <- diff(range(rmse)) / min(rmse)
+
   collapse_by <- vapply(specs, function(s) mean(m$collapse_frac[m$spec == s], na.rm = TRUE), numeric(1))
   anchor_role <- if (is.finite(collapse_by[["M1"]]) && collapse_by[["M1"]] >= collapse_by[["M0"]] - 0.05 && collapse_by[["M3"]] < 0.5 * collapse_by[["M0"]] && collapse_by[["M2"]] < collapse_by[["M1"]]) {
-    paste0("Time-scale priors alone ($M_1$) did not prevent one-process solutions, whereas the specifications that include the spectral anchor ($M_2$, $M_3$) largely did; the lower ambiguity under $M_3$ thus comes largely from fixing the variance ratio of the two drives through the anchor, ",
+    paste0(" Time-scale priors alone ($M_1$) therefore did not prevent one-process solutions, whereas the specifications that include the spectral anchor ($M_2$, $M_3$) largely did; the lower ambiguity under $M_3$ thus comes largely from fixing the variance ratio of the two drives through the anchor, ",
            "and it should not be read as evidence that the apportionment between the drives is correct.")
   } else ""
-  text <- anchor_role                                          # the per-specification values are in the table
+  text <- paste0(
+    "The median SD of $\\ln\\tau_s$ among near-equivalent fits was ",
+    paste(sprintf("%s for $%s$", num(dispersion), sub("M", "M_", specs)), collapse = ", "), " (lowest under $", sub("M", "M_", lowest),
+    "$). The best RR error differed by at most ", num(diff(range(rmse))), " ms (", pct(rmse_gap), ") between specifications, and the share of fits with both time constants inside the ",
+    "95% prior intervals was ", pct(in_range[["M0"]]), " for $M_0$ and ", pct(in_range[["M3"]]), " for $M_3$. One process absorbed essentially all variability in ",
+    join_and(sprintf("%s under $%s$", pct(collapse_by), sub("M", "M_", specs))), " of the fits.", anchor_role)
 
   if (!is.null(sensitivity)) {
     s <- as.data.frame(sensitivity$summary)
@@ -360,10 +373,9 @@ narrate_fantasia <- function(fantasia, hrv_results = NULL, part = c("main", "sup
     d <- contrasts[contrasts$family == family, ]
     big <- d[abs(d$cliff_delta) >= NARRATIVE$effect_size, ]
     if (!nrow(big)) return(paste0("none of the ", nrow(d), " ", family, " variables reached $|\\delta| \\geq ", NARRATIVE$effect_size, "$"))
-    top <- big[which.max(abs(big$cliff_delta)), ]
-    paste0(nrow(big), " of ", nrow(d), " ", family, " variables reached $|\\delta| \\geq ", NARRATIVE$effect_size, "$, the largest being ",
-           sprintf("%s (%s in older adults, $\\delta$ = %s%s)", label_of(top$variable), ifelse(top$cliff_delta > 0, "higher", "lower"),
-                   num(top$cliff_delta, 2), ifelse(top$p_BH < 0.05, "; adjusted $p < 0.05$", "")))
+    paste0(nrow(big), " of ", nrow(d), " ", family, " variables reached $|\\delta| \\geq ", NARRATIVE$effect_size, "$: ",
+           join_and(sprintf("%s (%s in older adults, $\\delta$ = %s%s)", label_of(big$variable), ifelse(big$cliff_delta > 0, "higher", "lower"),
+                            num(big$cliff_delta, 2), ifelse(big$p_BH < 0.05, "; adjusted $p < 0.05$", ""))))
   }
   text <- paste0("Among ", groups[["young"]], " young and ", groups[["older"]], " older adults, ", describe("latent"), "; ", describe("HRV"), ". ",
                  "These latent summaries are not independent: the share of $x_p$ variance is a monotone function of the SD ratio of the two states, both depend strongly on the spectral anchor $\\lambda_P$, $\\ln(\\kappa_p/\\kappa_s)$ combines the two time constants, ",
@@ -397,9 +409,7 @@ narrate_fantasia <- function(fantasia, hrv_results = NULL, part = c("main", "sup
 
 
 # ---- Result 5: exercise ----------------------------------------------------------------------------------------------------------------
-#' part = "main": responses and recovery times; part = "supplement": geometry of the state-plane path and its density landscape.
-narrate_exercise <- function(exercise, hrv_results = NULL, part = c("main", "supplement")) guarded("results/exercise.rds", {
-  part <- match.arg(part)
+narrate_exercise <- function(exercise, hrv_results = NULL) guarded("results/exercise.rds", {
   s <- exercise$summary
   km <- exercise$km
   recovery_text <- if (!is.null(km) && nrow(km)) {
@@ -414,11 +424,9 @@ narrate_exercise <- function(exercise, hrv_results = NULL, part = c("main", "sup
     "In ", s$n_usable, " of ", s$n, " exercise recordings the rest, exercise and recovery phases could be defined from heart rate. From rest to the end of exercise, the vagal-like state changed by ",
     median_range_text(exercise$rest_response$z_d_x_p, 1), " and the sympathetic-like state by ", median_range_text(exercise$rest_response$z_d_x_s, 1), " rest SDs, with a heart-rate increase of ",
     median_range_text(exercise$rest_response$d_hr, 0), " bpm (median [2.5th, 97.5th percentile] across recordings). Recovery times (", words_for(as.character(s$recovery_definition), RECOVERY_DEFINITION_TEXT), "; Kaplan-Meier medians) were ", recovery_text,
-    ".", recovery_note)
-  geometry <- paste0("The path in the state plane had a median length of ", median_range_text(exercise$geometry$path_length, 0), ", an enclosed area of ", median_range_text(exercise$geometry$loop_area, 0),
+    ".", recovery_note, " The path in the state plane had a median length of ", median_range_text(exercise$geometry$path_length, 0), ", an enclosed area of ", median_range_text(exercise$geometry$loop_area, 0),
     " and a maximum energy $U$ of ", median_range_text(exercise$geometry$U_max, 0), " in rest-SD units.")
-  if (!is.null(exercise$landscape_modes)) geometry <- paste0(geometry, " ", landscape_sentence(exercise$landscape_modes, "rest"))
-  if (part == "supplement") return(geometry)
+  if (!is.null(exercise$landscape_modes)) text <- paste0(text, " ", landscape_sentence(exercise$landscape_modes, "rest"))
   if (!is.null(hrv_results) && !is.null(hrv_results$loo_r2)) {
     loo <- as.data.frame(hrv_results$loo_r2)
     r2 <- loo[loo$Dataset == "exercise", ]
