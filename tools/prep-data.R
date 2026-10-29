@@ -49,7 +49,7 @@ PREP_DEFAULTS <- list(
   min_valid_frac = 0.8,                    # a signal with fewer valid values counts as absent
   gap_s = 2.5,                             # intervals longer than this are reported as gaps
   delay_beats = 600L, delay_max_s = 0.6,   # ECG-to-pulse delay estimation
-  tmst = list(exclude_n = 5L, max_minutes = 30),   # edge beats removed; recording cut at 30 min
+  tmst = list(exclude_n = 5L, max_minutes = 30, drop_duplicates = TRUE),   # edge beats removed; recording cut at 30 min; byte-identical files count once
   # PRCP protocol annotations (extension .anI: start / end of every tilt, stand-up, return to supine). They are written to
   # prcp_events.csv, and the RR cleaning gate does not replace physiological beats within [-before, +after] seconds of a
   # maneuver boundary, where genuine fast transitions (a return to supine can change RR by 0.4 s in a few beats) look like outliers.
@@ -372,6 +372,14 @@ prep_dataset <- function(dataset, wfdb) {
     return(NULL)
   }
   records <- if (dataset == "tmst") sub("\\.txt$", "", list.files(in_dir, pattern = "\\.txt$")) else wfdb_records(in_dir)
+  if (dataset == "tmst" && isTRUE(PREP_SETTINGS$tmst$drop_duplicates)) {   # a file that repeats an earlier one byte for byte is the same recording: keep the first
+    hash <- unname(tools::md5sum(file.path(in_dir, paste0(records, ".txt"))))
+    for (r in records[duplicated(hash)]) {
+      message(sprintf("[%s] %-10s DUPLICATE of %s (identical file): dropped", dataset, r, records[match(hash[match(r, records)], hash)]))
+      unlink(file.path(out_dir, paste0(gsub("-", "", r), ".csv")))           # output of an earlier run
+    }
+    records <- records[!duplicated(hash)]
+  }
 
   prepare_record <- function(record) {
     path <- file.path(in_dir, record)

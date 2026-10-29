@@ -89,10 +89,10 @@ figure_fit_diagnostics <- function(results, cfg) {
   medians <- population[, .(RMSE_ms = median(RMSE_ms)), by = Dataset]
 
   a <- ggplot(population, aes(Dataset, RMSE_ms, fill = Dataset, colour = Dataset)) + box_points(aes(fill = Dataset, colour = Dataset)) +
-    geom_text(data = medians, aes(label = sprintf("%.1f", RMSE_ms)), colour = "grey20", vjust = -0.9, hjust = -0.35, size = 3) +
+    scale_x_discrete(labels = setNames(sprintf("%s<br>median %.1f", medians$Dataset, medians$RMSE_ms), medians$Dataset)) +
     scale_fill_manual(values = colours, guide = "none") + scale_colour_manual(values = colours, guide = "none") +
     scale_y_continuous(expand = expansion(mult = c(0.02, 0.1))) +
-    labs(x = NULL, y = "RMSE of filtered RR (ms)", title = "Tracking error", subtitle = "numbers: median") + theme_spark(cfg)
+    labs(x = NULL, y = "RMSE of filtered RR (ms)", title = "Tracking error") + theme_spark(cfg)
   b <- ggplot(pacf_by_dataset, aes(lag, mean, colour = Dataset)) +
     geom_ribbon(aes(ymin = -bound, ymax = bound, fill = Dataset), alpha = 0.08, colour = NA) +
     geom_hline(yintercept = 0, linewidth = 0.3) + geom_line(linewidth = 0.6) +
@@ -217,7 +217,9 @@ prcp_amplitude_panel <- function(prcp, cfg) {
     geom_point(data = prcp$response_events, aes(z_d_x_p, z_d_x_s), size = 1.2, alpha = 0.35, colour = colour) +
     geom_point(data = per_recording, aes(z_d_x_p, z_d_x_s), size = 2.7, colour = colour)
   if (nrow(per_recording) <= 12) {
-    plot <- plot + geom_text(data = per_recording, aes(z_d_x_p, z_d_x_s, label = SubjectID), size = 2.7, hjust = -0.25, colour = "grey30")
+    plot <- plot + if (requireNamespace("ggrepel", quietly = TRUE))   # labels pushed apart; without ggrepel, overlapping labels are dropped
+      ggrepel::geom_text_repel(data = per_recording, aes(z_d_x_p, z_d_x_s, label = SubjectID), size = 2.7, colour = "grey30", segment.size = 0.2, min.segment.length = 0.2, max.overlaps = Inf, seed = 1)
+    else geom_text(data = per_recording, aes(z_d_x_p, z_d_x_s, label = SubjectID), size = 2.7, hjust = -0.25, colour = "grey30", check_overlap = TRUE)
   }
   plot + labs(x = tex("$\\Delta x_p$ (baseline SD)"), y = tex("$\\Delta x_s$ (baseline SD)"), title = "Response amplitude",
               subtitle = "large: recording median") + theme_spark(cfg)

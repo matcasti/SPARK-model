@@ -1,4 +1,4 @@
-- RR intervals alone do not uniquely identify vagal-like and sympathetic-like drives
+- RR alone may leave vagal-like and sympathetic-like drives ambiguous
 - A phase-domain state-space model filters irregular RR intervals in continuous time
 - Physiological priors and a spectral anchor restrict the set of latent solutions
 - Latent states are examined during tilt, across aging and in exercise recovery

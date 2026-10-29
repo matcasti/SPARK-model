@@ -10,7 +10,7 @@
 # ==============================================================================
 ENV_PACKAGES <- list(
   required    = c("data.table", "ggplot2", "patchwork", "ggtext", "biwavelet", "numDeriv", "MASS", "Rcpp", "survival", "Matrix", "scales", "viridisLite"),
-  recommended = c("ragg", "systemfonts", "svglite"),
+  recommended = c("ragg", "systemfonts", "svglite", "ggrepel"),
   preparation = c("reticulate"),
   rendering   = c("knitr", "rmarkdown")
 )

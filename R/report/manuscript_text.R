@@ -383,7 +383,8 @@ narrate_fantasia <- function(fantasia, hrv_results = NULL, part = c("main", "sup
   if (!is.null(fantasia$stability)) {
     st <- fantasia$stability
     text <- paste0(text, "Agreement between two non-overlapping windows of the same recording (ICC of the log values) had a median of ", num(median(st$icc_log[st$family == "latent"], na.rm = TRUE)),
-                   " for the latent summaries and ", num(median(st$icc_log[st$family == "HRV"], na.rm = TRUE)), " for the conventional HRV metrics. ")
+                   " for the latent summaries and ", num(median(st$icc_log[st$family == "HRV"], na.rm = TRUE)), " for the conventional HRV metrics",
+                   if (any(is.finite(st$icc_log))) paste0("; the lowest agreement was that of ", sym_tex(st$variable[which.min(st$icc_log)]), " (", num(min(st$icc_log, na.rm = TRUE)), "). ") else ". ")
   }
   inc <- fantasia$incremental
   text <- paste0(text, "The leave-one-out AUC for separating the groups was ", num(inc$auc_hrv), " with HRV metrics, ", num(inc$auc_latent), " with latent summaries and ", num(inc$auc_both),

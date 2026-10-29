@@ -81,5 +81,6 @@ def write_ann(rec, ext, samples, symbols, wdir):
     rr <- sim$rr; rr[c(50, 120)] <- c(rr[50] * 2, rr[120] * 0.4)                       # two artifacts
     writeLines(sprintf("%.1f", 1000 * rr), file.path(raw, "tmst", sprintf("ex%02d.txt", i)))
     truth[[sprintf("ex%02d", i)]] <- data.table(beat = seq_along(rr), rri = sim$rr) }
+  file.copy(file.path(raw, "tmst", "ex01.txt"), file.path(raw, "tmst", "ex99.txt"))                # a repeated file: counts once
   invisible(truth)
 }

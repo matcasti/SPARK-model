@@ -363,7 +363,7 @@ if (!is.null(sim_recovery)) {
 } else cat("[PENDING: results/sim_recovery.rds]")
 ```
 
-![Recovery under known truth. Errors in the time constants and in the share of vagal variance, and correlation of the reconstructed states with the true drives, by scenario and specification.](figures/figS1_simulation_recovery.png){#fig-supp-sim width=100%}
+![Recovery under known truth. Errors in the time constants and in the share of vagal variance, and correlation of the reconstructed states with the true drives, by scenario and specification.](figures/figS1_simulation_recovery.png){#fig-supp-sim width=100% fig-alt="Box plots of recovery errors under known truth for four simulation scenarios and four model specifications, in five rows: error of the log vagal and sympathetic time constants, correlation of reconstructed with true states, and error in the share of vagal variance."}
 
 # Identifiability and sensitivity analyses: details {#sec-ident-details}
 
@@ -408,7 +408,7 @@ if (!is.null(sensitivity)) {
 } else cat("[PENDING: results/sensitivity.rds]")
 ```
 
-![Sensitivity to the hyperparameters. (A) Largest absolute log-ratio of $\tau_p$ and $\tau_s$ relative to the reference. (B) Lowest correlation of the reconstructed states with the reference trajectories.](figures/figS2_sensitivity.png){#fig-supp-sens width=100%}
+![Sensitivity to the hyperparameters. (A) Largest absolute log-ratio of $\tau_p$ and $\tau_s$ relative to the reference. (B) Lowest correlation of the reconstructed states with the reference trajectories.](figures/figS2_sensitivity.png){#fig-supp-sens width=100% fig-alt="Two panels of horizontal box plots over hyperparameter variations and removed prior terms. A: largest change of the time constants relative to the reference model. B: lowest correlation of the reconstructed states with the reference trajectories."}
 
 *Results of the sensitivity analyses.* `r narrate_constraints(ident, sensitivity, sim_recovery, part = "supplement")` Supplementary figure S2 shows the changes of the time constants and of the reconstructed states for each variation.
 
@@ -429,13 +429,13 @@ if (!is.null(recovery_benchmark)) { a <- recovery_benchmark$choice$aggregate
 
 The definition with the highest score was `r txt(if (!is.null(recovery_benchmark)) recovery_benchmark$choice$definition)`, and the end-of-exercise rule with the smallest median absolute error was `r txt(if (!is.null(recovery_benchmark)) recovery_benchmark$choice$end_method)` (`r txt(if (!is.null(recovery_benchmark)) recovery_benchmark$choice$n_profiles)` simulated profiles; supplementary figure S3). The ranking depends on the simulated profiles, on the 10-s smoothing and on the tolerance of 1 rest SD, and should be revisited if the real recovery curves differ qualitatively (for example, non-monotonic recovery).
 
-![Benchmark of recovery-time definitions: proportion of defined estimates, rank correlation with the true constant, and test-retest rank correlation, for each state.](figures/figS3_recovery_benchmark.png){#fig-supp-recovery width=100%}
+![Benchmark of recovery-time definitions: proportion of defined estimates, rank correlation with the true constant, and test-retest rank correlation, for each state.](figures/figS3_recovery_benchmark.png){#fig-supp-recovery width=100% fig-alt="Three panels of bars comparing four recovery-time definitions for the vagal-like and sympathetic-like states: share of defined estimates, rank correlation with the true constant and test-retest rank correlation."}
 
 # Calibration of the innovation diagnostics {#sec-calibration}
 
 To examine the behavior of the Kolmogorov–Smirnov and PACF diagnostics when the model is correctly specified and its parameters are estimated from the same data, recordings were simulated from the model (time scales within the prior ranges) and fitted with $M_3$. Across `r txt(if (!is.null(checks)) nrow(checks$calibration))` simulated recordings, the KS distance exceeded the approximate critical value $1.36/\sqrt{N}$ in `r txt(if (!is.null(checks)) pct(mean(checks$calibration$KS_Stat > checks$calibration$crit)))` (nominal level 5% if parameters were known), the mean number of PACF lags outside the bounds was `r txt(if (!is.null(checks)) sprintf("%.2f", mean(checks$calibration$pacf_viol)))` of 40 (nominal 2.0), and the SD of the standardized innovations had a mean of `r txt(if (!is.null(checks)) sprintf("%.3f", mean(checks$calibration$z_sd)))` (nominal 1). Supplementary figure S4 summarizes these checks together with the numerical verification of the bound.
 
-![Numerical checks. (A) Neglected reflection term and its bound as a function of $\varepsilon$. (B) Fitted $\varepsilon$ in the recordings. (C) KS distance versus critical value in well-specified simulations.](figures/figS4_supplement_checks.png){#fig-supp-checks width=100%}
+![Numerical checks. (A) Neglected reflection term and its bound as a function of $\varepsilon$. (B) Fitted $\varepsilon$ in the recordings. (C) KS distance versus critical value in well-specified simulations.](figures/figS4_supplement_checks.png){#fig-supp-checks width=100% fig-alt="Three panels. A: neglected term of the threshold approximation against the noise-to-drift ratio, with its analytical bound. B: fitted timing jitter by dataset. C: Kolmogorov-Smirnov distance against its critical value in well-specified simulations."}
 
 The closed-form process covariance of the Ornstein–Uhlenbeck integrals (including the Taylor branch used for $\kappa\Delta t < 10^{-3}$) was compared with numerical integration by the Van Loan method over a grid of rates, intervals and variances; the maximum relative error was `r txt(if (!is.null(checks)) sprintf("%.1e", max(checks$ou_block[taylor == FALSE]$max_rel_err)))` for the closed form and `r txt(if (!is.null(checks)) sprintf("%.1e", max(checks$ou_block[taylor == TRUE]$max_rel_err)))` for the Taylor branch. The compiled filter used to accelerate the multi-start analyses reproduced the engine's R filter (likelihood, filtered states and implied RR) with a maximum discrepancy of `r txt(if (!is.null(checks) && !is.null(checks$cpp_vs_r)) sprintf("%.0e", max(unlist(checks$cpp_vs_r[, .(d_LL, d_x_p, d_x_s, d_rr)]))))`.
 
@@ -467,9 +467,9 @@ if (!is.null(event_detection)) knitr::kable(data.frame(`Minimum shift (Hz)` = ev
 
 In these simulations, the median onset error was `r txt(if (!is.null(event_detection)) sprintf("%.1f s", event_detection$summary$tilt_onset_err["med"]))` for tilt-like recordings, and the median absolute error of the end of exercise was `r txt(if (!is.null(event_detection)) paste(sprintf("%.1f s", event_detection$summary$ex_end_mae), collapse = ", "))` for the peak, second-change-point and profile rules, respectively. These values characterize the detection procedure under the simulated profiles, which are idealized. For recordings with repeated tilts, simulated with three tilts of 180 s separated by 240 s, `r txt(if (!is.null(event_detection)) pct(event_detection$summary$repeated_recall))` of the tilts were found (median onset error `r txt(if (!is.null(event_detection)) sprintf("%.1f s", event_detection$summary$repeated_onset_err["med"]))`), with `r txt(if (!is.null(event_detection)) sprintf("%.1f", event_detection$summary$repeated_extra))` additional events per recording. In the PRCP recordings, the accuracy against the tilt angle is shown in @fig-supp-events: each angle-derived onset was matched to the nearest heart-rate-detected onset within 60 s, and heart-rate events matching no tilt (other maneuvers that raise heart rate) were counted.
 
-![Event detection. (A) Heart-rate-detected minus angle- or annotation-derived onset and return of each maneuver (tilts and stand-ups) in the PRCP recordings. (B) Detected minus true times in simulated recordings with known timing. (C) False-detection rate in stationary simulated recordings and detection rate of simulated tilts as a function of the minimum shift between segments (dashed: value used).](figures/figS5_event_detection.png){#fig-supp-events width=100%}
+![Event detection. (A) Heart-rate-detected minus angle- or annotation-derived onset and return of each maneuver (tilts and stand-ups) in the PRCP recordings. (B) Detected minus true times in simulated recordings with known timing. (C) False-detection rate in stationary simulated recordings and detection rate of simulated tilts as a function of the minimum shift between segments (dashed: value used).](figures/figS5_event_detection.png){#fig-supp-events width=100% fig-alt="Three panels. A: heart-rate-detected minus reference event times for onsets and returns in real recordings. B: detected minus true times in simulations for six detection rules. C: false-detection and detection rates against the minimum shift between segments."}
 
-![State-space landscapes of the perturbation (top) and exercise (bottom) conditions. Each panel shows the pooled density of the filtered states in one phase (every recording contributes equally), with its basins (rings) and the mean flow of the states (arrows). Coordinates are in units of each recording's baseline SD; dark = high occupancy. The map is descriptive and is not a potential function estimated from the model.](figures/figS6_landscapes.png){#fig-supp-landscapes width=100%}
+![State-space landscapes of the perturbation (top) and exercise (bottom) conditions. Each panel shows the pooled density of the filtered states in one phase (every recording contributes equally), with its basins (rings) and the mean flow of the states (arrows). Coordinates are in units of each recording's baseline SD; dark = high occupancy. The map is descriptive and is not a potential function estimated from the model.](figures/figS6_landscapes.png){#fig-supp-landscapes width=100% fig-alt="Six density maps of the filtered states in the state plane, top row orthostatic perturbation (baseline, tilt, recovery) and bottom row exercise (rest, exercise, recovery), each with basin markers and flow arrows."}
 
 # Responses by type of maneuver (PRCP) {#sec-prcp-kinds}
 
@@ -498,7 +498,7 @@ if (!is.null(prcp$by_kind) && nrow(prcp$by_kind) > 1) {
 }
 ```
 
-![Responses by type of maneuver. Rows: vagal-like state, sympathetic-like state (in baseline SDs), heart rate and MAP (changes); columns: one per kind of maneuver (slow tilt, rapid tilt and stand-up; a tilt that the annotations do not label appears as "tilt"). Line: median over events; bands: 25-75% and 10-90%; each event is relative to its own baseline, and the scale of a row is shared across columns.](figures/figS7_maneuvers.png){#fig-supp-maneuvers width=100%}
+![Responses by type of maneuver. Rows: vagal-like state, sympathetic-like state (in baseline SDs), heart rate and MAP (changes); columns: one per kind of maneuver (slow tilt, rapid tilt and stand-up; a tilt that the annotations do not label appears as "tilt"). Line: median over events; bands: 25-75% and 10-90%; each event is relative to its own baseline, and the scale of a row is shared across columns.](figures/figS7_maneuvers.png){#fig-supp-maneuvers width=100% fig-alt="Twelve time-course panels in four rows (vagal-like state, sympathetic-like state, heart rate, arterial pressure) and three columns (slow tilt, rapid tilt, stand-up), showing the median over events with quartile and 10-90% bands."}
 
 ```{r}
 #| label: tbl-prcp-contrasts
@@ -535,7 +535,7 @@ All series are beat-wise and are resampled to 4 Hz by natural cubic splines befo
 
 *Results.* `r narrate_prcp(prcp, part = "supplement")` The comparison with the CWT moving spectrum is shown in @fig-supp-cwt.
 
-![Temporal resolution of the reconstruction relative to a CWT moving spectrum during the perturbation. (A) Median change of the sympathetic-like state (causal filter) and of the CWT LF band power around the tilt onset, in baseline SDs (bands: quartiles over recordings). (B) The same for the vagal-like state and the HF band power; the window required for frequency resolution spreads the CWT power around the transition. (C) Time of first departure from the baseline band, relative to the tilt onset, across recordings.](figures/fig4_benchmarking_comparison.png){#fig-supp-cwt width=100%}
+![Temporal resolution of the reconstruction relative to a CWT moving spectrum during the perturbation. (A) Median change of the sympathetic-like state (causal filter) and of the CWT LF band power around the tilt onset, in baseline SDs (bands: quartiles over recordings). (B) The same for the vagal-like state and the HF band power; the window required for frequency resolution spreads the CWT power around the transition. (C) Time of first departure from the baseline band, relative to the tilt onset, across recordings.](figures/fig4_benchmarking_comparison.png){#fig-supp-cwt width=100% fig-alt="Three panels. A: change of the sympathetic-like state and of LF band power around tilt onset. B: the same for the vagal-like state and HF band power. C: time of first departure from baseline for each measure."}
 
 # Respiration and blood pressure in the Fantasia recordings {#sec-fantasia-physiology}
 
@@ -543,7 +543,7 @@ All series are beat-wise and are resampled to 4 Hz by natural cubic splines befo
 
 *Results.* `r narrate_fantasia(fantasia, hrv, part = "supplement")` The respiration measures are shown in @fig-supp-resp.
 
-![Respiration in the Fantasia database (subjects with the signal; blood pressure is not available in these recordings). (A) SD of each reconstructed state within the respiratory band, paired within recordings. (B) Respiratory frequency by group, with the HF band shaded.](figures/fig10_fantasia_physiology.png){#fig-supp-resp width=100%}
+![Respiration in the Fantasia database (subjects with the signal; blood pressure is not available in these recordings). (A) SD of each reconstructed state within the respiratory band, paired within recordings. (B) Respiratory frequency by group, with the HF band shaded.](figures/fig10_fantasia_physiology.png){#fig-supp-resp width=100% fig-alt="Two panels. A: standard deviation of each state within the respiratory band, paired within recordings. B: respiratory frequency by group with the HF band shaded."}
 
 # Analysis pipeline and reproducibility {#sec-pipeline}
 

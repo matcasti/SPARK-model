@@ -46,6 +46,7 @@ check("respiration per beat follows the generating sinusoid (corr > 0.95)", cor(
 tp <- truth$prcp02
 check("angle per beat matches the generating angle (median error < 1 deg)", median(abs(rd("prcp", "prcp02")$angle - tp$angle)) < 1)
 # TMST ---------------------------------------------------------------------------------------------------
+check("TMST: a byte-identical repeat of a file is dropped (ex99 repeats ex01)", file.exists(file.path(OUT_DIR, "tmst", "ex01.csv")) && !file.exists(file.path(OUT_DIR, "tmst", "ex99.csv")))
 check("TMST: ms converted to s, edges removed, cut below 30 min", median(e1$rri) > 0.3 && median(e1$rri) < 2 && max(e1$time) / 60 < 30 && nrow(e1) < nrow(truth$ex01) - 9)
 check("TMST: injected artifacts cleaned (no interval > 2x or < 0.5x its neighbors)", { r <- e1$rri; all(r[-c(1, length(r))] < 1.8 * pmax(r[-c(1, 2)], r[-c(length(r) - 1, length(r))])) })
 # Cleaning gate: artifact-free series barely altered; injected artifacts corrected ---------------------------------
