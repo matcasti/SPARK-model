@@ -48,8 +48,6 @@ number-sections: true
 date: today
 author:
   - name: "Matías Castillo-Aguilar"
-    corresponding: true
-    email: "[PLACEHOLDER: corresponding author e-mail]"
     orcid: "0000-0001-7291-247X"
     affiliations:
       - ref: umag
@@ -58,6 +56,8 @@ author:
     affiliations:
       - ref: lmu
   - name: "Cristian Núñez-Espinosa"
+    corresponding: true
+    email: "cristian.nunez@umag.cl"
     orcid: "0000-0002-9896-7062"
     affiliations:
       - ref: umag
@@ -65,7 +65,7 @@ affiliations:
   - id: umag
     name: "Universidad de Magallanes"
     department: "Escuela de Medicina"
-    address: "[PLACEHOLDER: street address]"
+    address: "Avenida Bulnes 01855"
     city: "Punta Arenas"
     country: "Chile"
   - id: lmu

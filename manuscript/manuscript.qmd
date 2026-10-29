@@ -216,7 +216,7 @@ The model was implemented in R, and a browser-based implementation with the same
 
 *Data files and cleaning.* Each recording is a table of ECG-derived RR intervals with their times and, when available, blood pressure, respiration (Fantasia) or the tilt-table angle (PRCP). RR intervals and covariates were cleaned with an adaptive running-median/median-absolute-deviation gate, a setting chosen on simulated series with injected artifacts because it altered few artifact-free beats (about 0.2%) while correcting most artifacts (about 99.7%); the analyses that use a covariate were restricted to recordings with at least 80% valid values in the analysis window. The latent model itself uses only the RR intervals. Preparation, cleaning and their checks are described in the ["Data preparation and its checks"](supplementary.qmd#sec-data-prep) section of the supplementary material.
 
-*Participants.* The PRCP database contains ten healthy adults (the database reports neither age nor sex). The Fantasia database contains 20 young (21–34 years) and 20 older (68–85 years) healthy adults, with equal numbers of men and women in each group as reported by the database; the sex of the participants is as recorded by the data source. The exercise cohort consists of community-dwelling adults aged 60 years or older from the Magallanes region of Chile, recruited for the study that produced these recordings [@castillo2025enhancing]; that study analyzed 272 participants, and 266 recordings were available here. [PLACEHOLDER: age and sex distribution of the exercise cohort (Table 1 of that study) and the reason for the 266 of 272.] Sex and gender were not used as covariates in any analysis: the only subject characteristic analyzed was group membership in Fantasia.
+*Participants.* The PRCP database contains ten healthy adults (the database reports neither age nor sex). The Fantasia database contains 20 young (21–34 years) and 20 older (68–85 years) healthy adults, with equal numbers of men and women in each group as reported by the database; the sex of the participants is as recorded by the data source. The exercise cohort consists of community-dwelling adults aged 60 years or older from the Magallanes region of Chile, recruited for the study that produced these recordings [@castillo2025enhancing]; that study analyzed 272 participants, and 266 recordings were available here (dropped due to signal contamination). Sex and gender were not used as covariates in any analysis: the only subject characteristic analyzed was group membership in Fantasia.
 
 *Events.* The PRCP protocol comprises slow and rapid head-up tilts and an active stand-up from supine, and every tilt and every stand-up is an event analyzed separately against its own baseline. Onsets and returns were taken from the tilt-angle signal where available (median-filtered angle more than 10° above its baseline for at least 5 s), from the protocol annotations otherwise, and, for recordings with neither and for the exercise recordings, from the heart-rate series itself: heart rate in 5-s bins was segmented into piecewise-constant levels by exact dynamic programming, with the number of segments chosen by the Bayesian information criterion subject to a minimum difference of 0.10 Hz (about 6 bpm) between adjacent levels, chosen from the false-detection rate in simulated resting recordings. Heart rate alone cannot tell a tilt from another maneuver that raises it, so such events are candidates and not confirmed tilts, and, where events are detected from the same RR series that is modeled, timing relative to them is not independent evidence about the states; the analyses therefore emphasize the relative timing and amplitude of the two components. The algorithms and their accuracy are given in the ["Event detection"](supplementary.qmd#sec-event-detection) section of the supplementary material.
 
@@ -408,21 +408,19 @@ This study approached the inference of latent cardiac autonomic dynamics from RR
 
 # CRediT authorship contribution statement {.unnumbered}
 
-[PLACEHOLDER: to be completed and confirmed by every author using the CRediT taxonomy (Conceptualization; Methodology; Software; Validation; Formal analysis; Investigation; Resources; Data curation; Writing – original draft; Writing – review & editing; Visualization; Supervision; Project administration; Funding acquisition).]
-
-**Matías Castillo-Aguilar:** [PLACEHOLDER: roles]. **Noah Beelders:** [PLACEHOLDER: roles]. **Cristian Núñez-Espinosa:** [PLACEHOLDER: roles].
+**Matías Castillo-Aguilar:** Conceptualization; Methodology; Software; Validation; Formal analysis; Investigation; Resources; Data curation; Writing – original draft; Writing – review & editing; Visualization. **Noah Beelders:** Conceptualization; Validation; Writing – review & editing. **Cristian Núñez-Espinosa:** Writing – review & editing; Supervision; Project administration; Funding acquisition.
 
 # Declaration of competing interest {.unnumbered}
 
-[PLACEHOLDER: to be confirmed by all authors. Standard wording if applicable: "The authors declare that they have no known competing financial interests or personal relationships that could have appeared to influence the work reported in this paper." Otherwise, list the interests.]
+The authors declare that they have no known competing financial interests or personal relationships that could have appeared to influence the work reported in this paper.
 
 # Funding {.unnumbered}
 
-The exercise cohort was collected under ANID FONDECYT Iniciación No. 11220116 [@castillo2025enhancing]. [PLACEHOLDER: funding of the present work, if different, or: "This research did not receive any specific grant from funding agencies in the public, commercial, or not-for-profit sectors."]
+This research was funded by ANID Proyecto FONDECYT Regular, grant number 1250474, received by C.N.-E. The funder had no role in the study design, analysis, interpretation of results, writing of the report, or the decision to submit the article for publication.
 
 # Ethics statement {.unnumbered}
 
-The exercise cohort is a secondary analysis of recordings from a previously published study [@castillo2025enhancing], which was approved by the Ethics Committee of the University of Chile (ACTA No. 029 − 18/05/2022) and the Ethics Committee of the University of Magallanes (No. 008/SH/2022). No new data were collected for the present work, and only the RR-interval series, identified by a recording number, were used, so no additional ethical approval was required. [PLACEHOLDER: confirm the informed-consent statement of that study, which its article does not give.] The PRCP and Fantasia recordings are publicly available, de-identified datasets from PhysioNet, analyzed secondarily under their open license (Open Data Commons Attribution 1.0).
+The exercise cohort is a secondary analysis of recordings from a previously published study [@castillo2025enhancing], which was approved by the Ethics Committee of the University of Chile (ACTA No. 029 − 18/05/2022) and the Ethics Committee of the University of Magallanes (No. 008/SH/2022). No new data were collected for the present work, and only the RR-interval series, identified by a recording number, were used, so no additional ethical approval was required. The PRCP and Fantasia recordings are publicly available, de-identified datasets from PhysioNet, analyzed secondarily under their open license (Open Data Commons Attribution 1.0).
 
 # Code availability {.unnumbered}
 
@@ -430,11 +428,7 @@ The model is implemented in R (engine deposited with this article as model_code.
 
 # Data availability {.unnumbered}
 
-The PRCP recordings (Physiologic Response to Changes in Posture; <https://doi.org/10.13026/C2PC7R>) and the Fantasia database (<https://doi.org/10.13026/C2RG61>) are publicly available from PhysioNet under the Open Data Commons Attribution license; the repository downloads them with checksum verification (`make download`). The RR-interval series of the exercise cohort (266 recordings, without personal identifiers) are in the repository's `data-raw/tmst` folder. The analysis code and its configuration are at <https://github.com/matcasti/SPARK-model/>, and the figures, tables and numbers of this article are regenerated from them (`make data`, `make run`, `make render`). [PLACEHOLDER: DOI of the archived release of the repository (for example Zenodo) and its license.]
-
-# Acknowledgements {.unnumbered}
-
-We thank Diego Mabe-Castro and David Medina, co-authors of the study that produced the exercise cohort [@castillo2025enhancing]. [PLACEHOLDER: confirm this acknowledgement and add anyone else to thank, for example for language editing or proofreading.]
+The PRCP recordings (Physiologic Response to Changes in Posture; <https://doi.org/10.13026/C2PC7R>) and the Fantasia database (<https://doi.org/10.13026/C2RG61>) are publicly available from PhysioNet under the Open Data Commons Attribution license; the repository downloads them with checksum verification (`make download`). The RR-interval series of the exercise cohort (266 recordings, without personal identifiers) are in the repository's `data-raw/tmst` folder. The analysis code and its configuration are at <https://github.com/matcasti/SPARK-model/>, and the figures, tables and numbers of this article are regenerated from them (`make data`, `make run`, `make render`).
 
 # Declaration of generative AI and AI-assisted technologies in the writing process {.unnumbered}
 
