@@ -1,9 +1,9 @@
 # Runs the real tools/prep-data.R on synthetic WFDB records and checks the CSVs against the known truth,
 # then feeds them to the analysis loader and the model. Skips if Python/wfdb are unavailable.
-#   Rscript tests/test_prep.R
-Sys.setenv(SPARK_CONFIG = normalizePath("tests/config_test.R"))
+#   Rscript tests/suites/test_prep.R
+Sys.setenv(SPARK_CONFIG = normalizePath("tests/fixtures/config_test.R"))
 if (!nzchar(Sys.getenv("RETICULATE_PYTHON")) && file.exists("/home/claude/pyenv/bin/python")) Sys.setenv(RETICULATE_PYTHON = "/home/claude/pyenv/bin/python")
-source("analysis/00_setup.R"); source("tests/make_synthetic_wfdb.R")
+source("analysis/00_setup.R"); source("tests/fixtures/make_synthetic_wfdb.R")
 ok_py <- tryCatch({ reticulate::import("wfdb"); TRUE }, error = function(e) FALSE)
 if (!ok_py) { log_msg("Python 'wfdb' not available: prep test skipped."); quit(save = "no") }
 n_pass <- 0L

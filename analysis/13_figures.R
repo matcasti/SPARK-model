@@ -14,8 +14,8 @@ source("analysis/00_setup.R")
 if (!requireNamespace("ragg", quietly = TRUE)) log_msg("Package 'ragg' not installed: using the default PNG device (install.packages('ragg') for the best rendering of symbols).")
 
 figure_dir <- cfg$paths$figures
-log_msg("Figure font: %s (symbols checked with figure_glyphs(); run tools/check_figure_fonts.R if a symbol is missing)", figure_font(cfg))
-log_msg("If a figure shows markup such as <i>x</i><sub>p</sub> instead of symbols, run tools/check_figure_rendering.R and send its output.")
+log_msg("Figure font: %s (symbols checked with figure_glyphs(); run tools/checks/check_figure_fonts.R if a symbol is missing)", figure_font(cfg))
+log_msg("If a figure shows markup such as <i>x</i><sub>p</sub> instead of symbols, run tools/checks/check_figure_rendering.R and send its output.")
 results <- function(name) read_result(name, cfg, required = FALSE)
 format <- cfg$figures$format
 

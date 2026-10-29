@@ -94,7 +94,7 @@ cfg <- list(
                 brs_bands = list(LF = c(0.04, 0.15), HF = c(0.15, 0.40)), brs_min_coh = 0.5),
 
   # Exercise. recovery_definition / end_method "auto" read the empirical choice made by
-  # analysis/07_recovery_benchmark.R (end_method: peak | cp | profile)
+  # analysis/validation/07_recovery_benchmark.R (end_method: peak | cp | profile)
   exercise = list(recovery_definition = "auto", end_method = "auto",
                   smooth_s = 10, hold_s = 20, tol_sd = 1.0, rest_skip_s = 20, end_window_s = 15, max_exercise_s = 360),
 

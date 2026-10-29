@@ -1,6 +1,6 @@
 # ==============================================================================
 # check_figure_fonts.R -- which font the figures use and whether it has every symbol of the labels.
-#   Rscript tools/check_figure_fonts.R
+#   Rscript tools/checks/check_figure_fonts.R
 # Prints, for each candidate family, the symbols (Greek letters, minus, operators) it lacks, the family chosen by
 # figure_font() and the packages that draw the text. If symbols are missing or empty boxes appear in a figure, install a
 # font with full Greek and mathematical coverage (DejaVu Sans, Arial, Noto Sans) or set cfg$figures$font in config.R.

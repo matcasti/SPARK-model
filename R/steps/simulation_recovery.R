@@ -1,6 +1,6 @@
 # ==============================================================================
 # R/steps/simulation_recovery.R -- recovery of the latent parameters and states under known truth.
-# Called by analysis/02_simulation_recovery.R. Each simulated recording is fitted with every
+# Called by analysis/model/02_simulation_recovery.R. Each simulated recording is fitted with every
 # specification (M0, M1, M2, M3) and compared with the generating values.
 # ==============================================================================
 

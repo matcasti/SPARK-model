@@ -127,7 +127,7 @@ phase_modes <- function(landscapes) {
 # ---- Pooled landscapes of several recordings ------------------------------------------------------------------
 #' Landscapes by phase pooled over recordings: every recording contributes equally within a phase
 #' (weight 1 / number of its points in that phase).
-#' @param series_list named list of recording series (see analysis/05_prcp.R, 09_exercise.R)
+#' @param series_list named list of recording series (see analysis/datasets/05_prcp.R, 09_exercise.R)
 #' @param settings cfg$figures$landscape
 #' @return list(paths = all points, landscapes = by phase, limits, modes = phase modes and their shifts)
 pooled_phase_landscapes <- function(series_list, kind, settings) {

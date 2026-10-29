@@ -52,7 +52,7 @@ config_used <- load_result("config_used"); figure_info <- load_result("figure_in
 :::{.callout-note appearance="simple" icon=false}
 ## Highlights
 
-{{< include highlights.md >}}
+{{< include support/highlights.md >}}
 :::
 
 **Abstract**

@@ -139,7 +139,7 @@ series_stack <- function(series, kind, cfg, title = NULL, subtitle = NULL) {
 #' Recordings aligned on their events. For every event the variables are expressed relative to the event's
 #' own baseline: the states and (optionally) the CWT band powers in baseline SDs, heart rate and MAP as
 #' changes. A recording's curve is the mean over its events; `locked` has one row per recording and time.
-#' @param series_list named list of series (analysis/05_prcp.R or 09_exercise.R)
+#' @param series_list named list of series (analysis/datasets/05_prcp.R or 09_exercise.R)
 #' @param kind "tilt": aligned on each tilt onset, shown until the tilt returns;
 #'             "exercise": aligned on the end of exercise (recovery), rest as baseline
 #' @param window_s time range relative to the alignment point

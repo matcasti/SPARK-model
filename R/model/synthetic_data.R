@@ -4,7 +4,7 @@
 #     rri = diff(time), covariates from the same beat;
 #   * legacy = TRUE: the earlier script (rolling join of rri onto the beat times of a second signal,
 #     2 MAD x 5 cleaning), kept to document and test why it was replaced.
-# Used by the test suite and analysis/12_preprocessing_checks.R. The outputs are synthetic.
+# Used by the test suite and analysis/validation/12_preprocessing_checks.R. The outputs are synthetic.
 #
 #   write_synthetic_data()   the three dataset folders (prcp, fantasia, tmst) + ground truth
 #   write_fantasia_csv(), write_prcp_csv(), write_tmst_csv()   one recording each

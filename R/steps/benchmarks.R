@@ -1,7 +1,7 @@
 # ==============================================================================
 # R/steps/benchmarks.R -- methodological benchmarks on simulated recordings with known truth.
-#   Recovery-time definition and exercise-end rule  (analysis/07_recovery_benchmark.R)
-#   RR-based event detection                        (analysis/08_event_detection_validation.R)
+#   Recovery-time definition and exercise-end rule  (analysis/validation/07_recovery_benchmark.R)
+#   RR-based event detection                        (analysis/validation/08_event_detection_validation.R)
 # ==============================================================================
 
 # ---- Recovery definition and exercise-end rule -----------------------------------------------------------

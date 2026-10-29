@@ -46,13 +46,13 @@ choose_example <- function(scores, setting = "largest") {
 #' @param kind "tilt" (results$prcp) or "exercise" (results$exercise)
 example_recording <- function(results, kind, cfg) {
   if (kind == "tilt") {
-    prcp <- need(results, "prcp", "run analysis/05_prcp.R")
-    if (is.null(prcp$series_all)) stop("results/prcp.rds has no series_all: rerun analysis/05_prcp.R", call. = FALSE)
+    prcp <- need(results, "prcp", "run analysis/datasets/05_prcp.R")
+    if (is.null(prcp$series_all)) stop("results/prcp.rds has no series_all: rerun analysis/datasets/05_prcp.R", call. = FALSE)
     response <- prcp$response
     series <- prcp$series_all
     setting <- cfg$figures$example$prcp
   } else {
-    exercise <- need(results, "exercise", "run analysis/09_exercise.R")
+    exercise <- need(results, "exercise", "run analysis/datasets/09_exercise.R")
     response <- exercise$rest_response
     series <- exercise$series_all
     setting <- cfg$figures$example$exercise
@@ -310,7 +310,7 @@ figure_prcp_group <- function(results, cfg) {
 figure_cwt_comparison <- function(results, cfg) {
   prcp <- need(results, "prcp")
   locked <- event_locked(prcp$series_all, "tilt", c(-120, 150), with_cwt = TRUE)
-  if (!all(c("LF", "HF") %in% locked$variable)) stop("series carry no CWT band power: rerun analysis/05_prcp.R", call. = FALSE)
+  if (!all(c("LF", "HF") %in% locked$variable)) stop("series carry no CWT band power: rerun analysis/datasets/05_prcp.R", call. = FALSE)
   states <- figure_palette(cfg, "states")
   summary <- locked[, .(median = median(value), q1 = quantile(value, 0.25), q3 = quantile(value, 0.75), n = .N), by = .(variable, u)]
   summary <- summary[n >= max(2, 0.5 * uniqueN(locked$id))]
@@ -454,7 +454,7 @@ figure_fantasia_physiology <- function(results, cfg) {
 # ---- Supplementary: event detection ------------------------------------------------------------------------------------------
 figure_event_detection <- function(results, cfg) {
   prcp <- need(results, "prcp")
-  detection <- need(results, "event_detection", "run analysis/08_event_detection_validation.R")
+  detection <- need(results, "event_detection", "run analysis/validation/08_event_detection_validation.R")
   colour <- figure_palette(cfg, "datasets")[["prcp"]]
   validation <- prcp$validation[matched == TRUE]
   real <- melt(validation[, .(SubjectID, event, onset = err_onset, `return` = err_return)], id.vars = c("SubjectID", "event"))[is.finite(value)]
@@ -592,8 +592,8 @@ figure_numerical_checks <- function(results, cfg) {
 
 # ---- Figure S7: responses by type of maneuver (PRCP) -----------------------------------------------------------------------------
 figure_prcp_maneuvers <- function(results, cfg) {
-  prcp <- need(results, "prcp", "run analysis/05_prcp.R")
-  if (is.null(prcp$by_kind) || !nrow(prcp$by_kind)) stop("results/prcp.rds has no responses by kind: rerun analysis/05_prcp.R", call. = FALSE)
+  prcp <- need(results, "prcp", "run analysis/datasets/05_prcp.R")
+  if (is.null(prcp$by_kind) || !nrow(prcp$by_kind)) stop("results/prcp.rds has no responses by kind: rerun analysis/datasets/05_prcp.R", call. = FALSE)
   kinds <- intersect(c("slow tilt", "rapid tilt", "stand-up", "tilt"), prcp$by_kind$kind)
   locked <- rbindlist(lapply(kinds, function(k) {
     one <- event_locked(prcp$series_all, "tilt", c(-120, 150), maneuvers = k)

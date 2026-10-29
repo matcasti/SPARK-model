@@ -1,6 +1,6 @@
 # Tests of the text generators in R/report/manuscript_text.R: the wording must follow the outcome (both
 # directions), degrade to "[PENDING" when results are missing, and never contain "NA" / "Inf".
-#   Rscript tests/test_narrative.R
+#   Rscript tests/suites/test_narrative.R
 for (f in c("config.R")) source(f)
 suppressPackageStartupMessages(library(data.table))
 source("R/report/manuscript_text.R")

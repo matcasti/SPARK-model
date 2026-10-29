@@ -1,6 +1,6 @@
 # ==============================================================================
 # R/steps/hrv_comparators.R -- conventional HRV (mean HR, SDNN, RMSSD, LF/HF) as comparators of the latent
-# summaries. Called by analysis/10_hrv_comparators.R. Descriptive only: no claim of superiority.
+# summaries. Called by analysis/validation/10_hrv_comparators.R. Descriptive only: no claim of superiority.
 #
 #   hrv_recording_table()       latent summaries + HRV of every recording of a dataset
 #   hrv_phase_table()           HRV in the rest/baseline and exercise/tilt windows

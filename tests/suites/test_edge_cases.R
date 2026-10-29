@@ -1,15 +1,15 @@
 # Runs the analysis scripts on datasets in which covariates are absent everywhere, to check that
 # empty tables degrade gracefully (the case that broke script 06: no blood pressure anywhere,
 # a single-step tilt protocol). Also renders the R chunks of the manuscript and supplement.
-#   Rscript tests/test_edge_cases.R
+#   Rscript tests/suites/test_edge_cases.R
 cases <- c("nobp_step", "noangle", "noevent")
-scripts <- c("analysis/01_fit_all.R", "analysis/05_prcp.R", "analysis/06_fantasia.R", "analysis/09_exercise.R", "analysis/10_hrv_comparators.R", "analysis/13_figures.R")
-cfg_file <- normalizePath("tests/config_test.R"); fails <- character()
+scripts <- c("analysis/model/01_fit_all.R", "analysis/datasets/05_prcp.R", "analysis/datasets/06_fantasia.R", "analysis/datasets/09_exercise.R", "analysis/validation/10_hrv_comparators.R", "analysis/13_figures.R")
+cfg_file <- normalizePath("tests/fixtures/config_test.R"); fails <- character()
 for (cs in cases) {
   root <- file.path(tempfile("edge"), cs); dir.create(root, recursive = TRUE)
   env <- c(SPARK_TEST_ROOT = root, SPARK_CONFIG = cfg_file, EDGE_CASE = cs)
   cat(sprintf("\n=== case '%s' (%s)\n", cs, root))
-  st <- system2("Rscript", "tests/make_edge_data.R", env = paste0(names(env), "=", shQuote(env)), stdout = FALSE, stderr = FALSE)
+  st <- system2("Rscript", "tests/fixtures/make_edge_data.R", env = paste0(names(env), "=", shQuote(env)), stdout = FALSE, stderr = FALSE)
   if (st != 0) { fails <- c(fails, paste(cs, "make_edge_data")); next }
   for (sc in scripts) {
     log <- file.path(root, paste0(basename(sc), ".log"))

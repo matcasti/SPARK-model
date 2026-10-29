@@ -10,7 +10,7 @@
 #   angle      deg  mean tilt-table angle over the interval (PRCP)
 # Signals a subject does not have are written as all-NA columns.
 #
-# Differences from the earlier version (all checked in tests/test_prep.R):
+# Differences from the earlier version (all checked in tests/suites/test_prep.R):
 #  * no rolling join: RR and covariates share one beat table, so `rri` is exactly
 #    diff(time) and no interval is repeated or skipped (the join left 4-11% repeated values);
 #  * PRCP: RR comes from the ECG (wqrs) beats and blood pressure is taken from the ABP
@@ -20,7 +20,7 @@
 #  * non-beat annotation symbols are excluded; implausible blood pressure is set to NA;
 #  * the cleaning gate is 3.5 MAD x 2 passes (the old 2 MAD x 5 changed 4-7% of artifact-free
 #    beats and lowered RMSSD by 8-11%; 3.5 MAD changes ~0.2% and still corrects ~99.7% of
-#    injected artifacts; see tests/benchmark_cleaning_gate.R);
+#    injected artifacts; see tools/checks/benchmark_cleaning_gate.R);
 #  * vectorized (no rbind in a loop); records are processed independently and failures are
 #    reported instead of stopping the run; a QC table is written (data/prep_qc.csv).
 #

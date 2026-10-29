@@ -1,8 +1,8 @@
 # Unit and smoke tests. Run from the project root:
-#   Rscript tests/test_pipeline.R            # unit checks (~1-2 min)
-#   SPARK_E2E=1 Rscript tests/test_pipeline.R # + end-to-end run of all scripts on synthetic data (~10 min)
+#   Rscript tests/suites/test_pipeline.R            # unit checks (~1-2 min)
+#   SPARK_E2E=1 Rscript tests/suites/test_pipeline.R # + end-to-end run of all scripts on synthetic data (~10 min)
 Sys.setenv(SPARK_TEST_ROOT = Sys.getenv("SPARK_TEST_ROOT", "tests/_run"))
-Sys.setenv(SPARK_CONFIG = normalizePath("tests/config_test.R"))
+Sys.setenv(SPARK_CONFIG = normalizePath("tests/fixtures/config_test.R"))
 source("analysis/00_setup.R"); source("pipeline.R")
 n_pass <- 0L
 check <- function(name, cond) { if (!isTRUE(cond)) stop("FAILED: ", name, call. = FALSE); n_pass <<- n_pass + 1L; log_msg("ok   %s", name) }
@@ -19,7 +19,7 @@ for (p in list(c(0.3, 0.006, 2.7, 0.1), c(0.5, 0.02, 1.2, 0.01), c(0.2, 1e-4, 5,
         max(abs(a$LL_star - b$LL_star) / abs(a$LL_star), max(abs(a$states[, "X_p"] - b$X_p)), max(abs(a$states[, "X_s"] - b$X_s)), max(abs(a$implied_rr - b$implied_rr))) < 1e-9)
 }
 # 2. recorded reference values (taken before the M3 engine became the engine of record), the engine fit and the pipeline fits
-gold <- readRDS("tests/golden_m3.rds"); idx <- c(1, 50, 200, 400)
+gold <- readRDS("tests/fixtures/golden_m3.rds"); idx <- c(1, 50, 200, 400)
 for (g in gold$filters) {
   a <- run_gls_filter(dy, g$par[1], g$par[2], g$par[3], g$par[4], ctl)
   check(sprintf("engine filter reproduces the recorded reference (kp = %.1f, ks = %g)", g$par[1], g$par[2]),
@@ -34,7 +34,7 @@ check("fit_model_fast reproduces the engine estimates", max(abs(c(fe$params$ks, 
 check("M3 optimum: the objective does not decrease in any coordinate direction", all(vapply(seq_along(fv$theta), function(i) { th <- fv$theta; th[i] <- th[i] - 0.05; th2 <- fv$theta; th2[i] <- th2[i] + 0.05
   variant_objective(th, ps$dy, sp, ps$priors, ps$control) >= fv$objective - 1e-6 && variant_objective(th2, ps$dy, sp, ps$priors, ps$control) >= fv$objective - 1e-6 }, logical(1))))
 check("the engine default vagal floor fraction is 0.25 and the spectral anchor matches the record", spark_priors()$lower_lf_vagal_fraction == 0.25 && abs(ps$priors$energy_ratio - gold$energy_ratio) < 1e-8)
-check("engine file is byte-identical to the recorded version", unname(tools::md5sum(cfg$paths$engine)) == trimws(readLines("tests/engine.md5")[1]))
+check("engine file is byte-identical to the recorded version", unname(tools::md5sum(cfg$paths$engine)) == trimws(readLines("tests/fixtures/engine.md5")[1]))
 # 3. nested specifications behave as defined
 fs <- fit_specs(ps, c("M0", "M1", "M2", "M3"), full = FALSE)
 check("all specifications fit", all(vapply(fs, function(f) isTRUE(f$ok), TRUE)))
@@ -233,7 +233,7 @@ check("figure settings are in config.R", all(c("format", "dpi", "base_size", "ex
 
 if (nzchar(Sys.getenv("SPARK_E2E"))) {
   log_msg("End-to-end run of all scripts on synthetic data...")
-  system2("Rscript", "tests/make_synthetic_data.R")
+  system2("Rscript", "tests/fixtures/make_synthetic_data.R")
   check("run_all.R completes", system2("Rscript", "tools/run_all.R") == 0)
   need <- unlist(lapply(PIPELINE, `[[`, "writes"))                       # pipeline.R
   check("all result files exist", all(file.exists(file.path(cfg$paths$results, paste0(need, ".rds")))))

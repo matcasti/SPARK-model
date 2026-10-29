@@ -1,7 +1,7 @@
 # ==============================================================================
 # R/steps/checks.R -- numerical verification of statements in the supplementary material, and
-# checks of the data-preparation choices. Called by analysis/11_supplement_checks.R and
-# analysis/12_preprocessing_checks.R.
+# checks of the data-preparation choices. Called by analysis/validation/11_supplement_checks.R and
+# analysis/validation/12_preprocessing_checks.R.
 #
 # Supplement checks
 #   first_passage_bound_table()   bound on the terminal-threshold approximation (+ Monte Carlo)

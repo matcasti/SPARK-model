@@ -1,6 +1,6 @@
 # ==============================================================================
 # R/steps/fantasia.R -- Result 4: young vs older adults (Fantasia), stability of the
-# representation, and respiration / blood-pressure context. Called by analysis/06_fantasia.R.
+# representation, and respiration / blood-pressure context. Called by analysis/datasets/06_fantasia.R.
 #
 #   fantasia_summary_table()        one row per recording: latent summaries + conventional HRV
 #   fantasia_group_contrasts()      older - young, latent and HRV families (BH within family)

@@ -4,12 +4,12 @@
 #   R/core/     helpers every other file may use: logging, results store, CSV loader, statistics
 #   R/model/    the model: specifications M0-M3, fits, identifiability, simulator, synthetic recordings
 #   R/signals/  what is computed from RR series and states: events, physiology, HRV, summaries, landscapes
-#   R/steps/    the per-recording steps of each analysis script (analysis/NN_*.R only call these)
+#   R/steps/    the per-recording steps of each analysis script (analysis/<group>/NN_*.R only call these)
 #   R/report/   notation, plots, figures and manuscript text built from the saved results
 #
 # A layer may use the layers before it, not the ones after it. Within a layer files load alphabetically,
 # and no file runs code at load time beyond defining functions and constants, so the order inside a layer
-# does not matter. tests/test_workflow.R checks that every file of R/ sits in a layer and that no function is
+# does not matter. tests/suites/test_workflow.R checks that every file of R/ sits in a layer and that no function is
 # defined twice.
 # ==============================================================================
 PROJECT_LAYERS <- c("core", "model", "signals", "steps", "report")

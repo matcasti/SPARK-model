@@ -1,7 +1,7 @@
 # ==============================================================================
 # tools/make_docs.R -- writes docs/DATAFLOW.md from the code, so the map cannot drift from it.
 #   Rscript tools/make_docs.R           regenerate
-#   Rscript tools/make_docs.R --check   exit status 1 when docs/DATAFLOW.md is not what the code produces (tests/test_workflow.R)
+#   Rscript tools/make_docs.R --check   exit status 1 when docs/DATAFLOW.md is not what the code produces (tests/suites/test_workflow.R)
 # Sources: pipeline.R (scripts, reads, writes), the header of every file of R/ ("# R/<layer>/<file>.R -- purpose") and the
 # function definitions in them. Only the introduction and section 3 below are written by hand.
 # ==============================================================================
@@ -52,7 +52,7 @@ fixed_sections <- c(
   "- `engine/`: `model_engine.R` (the estimation engine, used unmodified) and `fast_filter.cpp` (a verified C++ port of its filter).",
   "- `tools/`: `prep-data.R` (raw WFDB / text files -> CSV recordings and `data/prep_qc.csv`), `run_all.R` (the pipeline), `check_env.R`, `make_docs.R`, `check_figure_fonts.R`, `check_figure_rendering.R`.",
   "- `tests/`: `run_tests.R` runs the suites: `test_workflow.R` (structure and bookkeeping), `test_pipeline.R` (unit checks, optional end-to-end run), `test_narrative.R`, `test_prep.R` (`prep-data.R` on synthetic WFDB records), `test_edge_cases.R` (absent covariates); `compare_results.R` compares two `results/` folders.",
-  "- `manuscript/`: `manuscript.qmd`, `supplementary.qmd` and `figures/`. The `.qmd` files read `results/*.rds`.",
+  "- `manuscript/`: `manuscript.qmd`, `supplementary.qmd`, `figures/`, `templates/` and `support/`. The `.qmd` files read `results/*.rds`.",
   "- `results/`: what the pipeline writes, plus `run_log.csv`, `provenance.txt` and `MANIFEST.csv` (what was run, with which code and data, and the md5 of every file).")
 
 doc <- c("# Data flow and code map", "",

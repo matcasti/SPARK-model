@@ -3,7 +3,7 @@
 #
 # Only the objective assembly differs from the engine (its likelihood, priors and spectral
 # anchor are reused), so the engine API and its filter are untouched (the compiled filter is
-# checked against the engine filter in tests/test_pipeline.R).
+# checked against the engine filter in tests/suites/test_pipeline.R).
 #
 #   M0   structural constraints only (positivity, kp > ks); lambda_P free
 #   M1   + time-scale (log-normal) and separation (Beta) priors; lambda_P free

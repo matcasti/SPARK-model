@@ -1,5 +1,5 @@
 # Compares result files of two runs numerically (tolerance 1e-8) and reports differences.
-#   Rscript tests/compare_results.R <baseline_results_dir> <new_results_dir> [name1 name2 ...]
+#   Rscript tools/checks/compare_results.R <baseline_results_dir> <new_results_dir> [name1 name2 ...]
 args <- commandArgs(trailingOnly = TRUE)
 base_dir <- args[1]; new_dir <- args[2]
 files <- if (length(args) > 2) paste0(args[-(1:2)], ".rds") else sort(list.files(base_dir, pattern = "\\.rds$"))

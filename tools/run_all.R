@@ -17,7 +17,7 @@
 # Run from the project root.
 # ==============================================================================
 if (!file.exists("config.R")) stop("Run from the project root (the folder containing config.R).", call. = FALSE)
-source("config.R"); source("pipeline.R"); source("tools/check_env.R")
+source("config.R"); source("pipeline.R"); source("tools/checks/check_env.R")
 
 args <- commandArgs(trailingOnly = TRUE)
 option <- function(name) { hit <- grep(paste0("^--", name, "="), args, value = TRUE); if (length(hit)) strsplit(sub(".*=", "", hit[1]), ",")[[1]] else NULL }

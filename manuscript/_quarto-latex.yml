@@ -5,5 +5,5 @@ format:
     pdf-engine: pdflatex
     output-file: manuscript-latex
     template-partials:
-      - title.tex
-    include-in-header: tex-header.tex
+      - templates/title.tex
+    include-in-header: templates/tex-header.tex

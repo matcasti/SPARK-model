@@ -40,10 +40,10 @@ format:
     section-numbering: 1.1.1
     toc: false
     template-partials:
-      - typst-template.typ
-      - typst-show.typ
+      - templates/typst-template.typ
+      - templates/typst-show.typ
 
-bibliography: citations.bib
+bibliography: support/citations.bib
 number-sections: true
 date: today
 author:

@@ -14,7 +14,6 @@ docs/SUBMISSION_AUDIT.md
 
 # Generated; rebuilt by `make run` / `make render` / `make submission`
 manuscript/*.typ
-!manuscript/typst-*.typ
 manuscript/manuscript.tex
 manuscript/supplementary.tex
 manuscript/site_libs

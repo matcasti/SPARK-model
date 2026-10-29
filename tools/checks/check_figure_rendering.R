@@ -1,6 +1,6 @@
 # ==============================================================================
 # check_figure_rendering.R -- do the symbols in figure labels render as symbols in THIS R installation?
-#   Rscript tools/check_figure_rendering.R
+#   Rscript tools/checks/check_figure_rendering.R
 # Builds small plots with markup (tex() labels) in each text element of theme_spark -- axis titles, tick labels (discrete and
 # continuous axes), facet strips, legend, title -- also inside a patchwork, and reports for each whether the element was drawn as
 # formatted text (gridtext) or as plain text, in which case the markup (<i>x</i><sub>p</sub>) is shown literally.

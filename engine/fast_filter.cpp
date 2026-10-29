@@ -1,6 +1,6 @@
 // Fast port of run_gls_filter() from model_engine.R (same recursion, same
 // guards). Used only to speed up multi-fit analyses; it is verified against the
-// R engine in tests/test_pipeline.R and never replaces it for reported fits.
+// R engine in tests/suites/test_pipeline.R and never replaces it for reported fits.
 #include <Rcpp.h>
 #include <cmath>
 #include <algorithm>

@@ -3,7 +3,7 @@
 # Piecewise-constant change points on binned heart rate, chosen by BIC with a minimum-shift rule;
 # for exercise, also a parametric rise-and-decay profile. Detected times are estimates, not truth.
 # Used where no event information exists (TMST, PRCP recordings without a tilt angle) and validated
-# against the tilt angle where both exist (analysis/05_prcp.R) and on simulations (analysis/08_*.R).
+# against the tilt angle where both exist (analysis/datasets/05_prcp.R) and on simulations (analysis/validation/08_*.R).
 #
 #   detect_events()          onset / recovery / end-of-exercise candidates for one recording
 #                            (tilt mode: every perturbation of the recording)
@@ -173,7 +173,7 @@ pair_perturbations <- function(change_t, means) {
 #'  mode "tilt":     every perturbation (`$events`): up to `max_tilt_events` rises of heart rate, each ended by a
 #'                   later fall. `t_onset` / `t_recovery` repeat the first one.
 #'  mode "exercise": one bout: onset as above; the end of exercise is returned under three rules so that the rule
-#'                   can be benchmarked (analysis/07_recovery_benchmark.R): the smoothed heart-rate peak
+#'                   can be benchmarked (analysis/validation/07_recovery_benchmark.R): the smoothed heart-rate peak
 #'                   after the onset (t_end_peak), the next change point (t_end_cp), the fitted
 #'                   profile's offset (t_end_profile).
 #' Heart-rate rises alone cannot tell a tilt from another manoeuvre: the events are candidates.

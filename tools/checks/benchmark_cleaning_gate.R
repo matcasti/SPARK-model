@@ -5,7 +5,7 @@
 #   false_alter  proportion of artifact-free beats changed by > 1 ms (should be small)
 #   sens         proportion of artifact beats whose error is at least halved
 #   rmssd_ratio  RMSSD of the cleaned series / RMSSD of the artifact-free series (1 = ideal)
-Sys.setenv(SPARK_CONFIG = normalizePath("tests/config_test.R"))
+Sys.setenv(SPARK_CONFIG = normalizePath("tests/fixtures/config_test.R"))
 source("analysis/00_setup.R")
 n_sim <- 30; grid <- expand.grid(n_mad = c(2, 3, 3.5, 4, 5), n_iter = c(1, 2, 5))
 res <- list()

@@ -4,7 +4,7 @@
 # One source of truth for
 #   * tools/run_all.R      run order, stale detection, check that each step wrote what it declares,
 #   * docs/DATAFLOW.md     the table of scripts (tools/make_docs.R),
-#   * tests/test_workflow  the declarations must match the read_result()/write_result() calls in the scripts.
+#   * tests/suites/test_workflow  the declarations must match the read_result()/write_result() calls in the scripts.
 # config.R says WHAT is analysed and how; this file says IN WHICH ORDER and from what to what.
 #
 # reads   "data"  the CSV recordings (data/);   "name"  results/name.rds is required;
@@ -16,30 +16,30 @@ step <- function(id, script, title, reads, writes, used_in = "", files = charact
 }
 
 PIPELINE <- list(
-  step("01", "01_fit_all.R", "Fit every recording with M3",
+  step("01", "model/01_fit_all.R", "Fit every recording with M3",
        reads = "data", writes = c("config_used", "fit_prcp", "fit_fantasia", "fit_exercise", "df_population_summary"),
        files = "{results}/population_summary.csv", used_in = "Fit and innovation diagnostics; time constants (Figure 2)"),
-  step("02", "02_simulation_recovery.R", "Parameter and state recovery under known truth",
+  step("02", "model/02_simulation_recovery.R", "Parameter and state recovery under known truth",
        reads = character(), writes = "sim_recovery", used_in = "Recovery under known truth (Figure S1)"),
-  step("03", "03_identifiability.R", "Multi-start identifiability, M0-M3",
+  step("03", "model/03_identifiability.R", "Multi-start identifiability, M0-M3",
        reads = "data", writes = "identifiability", used_in = "Results 1-2 (Figure 1, Table 4)"),
-  step("04", "04_sensitivity.R", "Sensitivity to hyperparameters, prior vs posterior",
+  step("04", "model/04_sensitivity.R", "Sensitivity to hyperparameters, prior vs posterior",
        reads = "data", writes = "sensitivity", used_in = "Sensitivity, prior contrast (Figure S2)"),
-  step("05", "05_prcp.R", "Orthostatic perturbation (PRCP)",
+  step("05", "datasets/05_prcp.R", "Orthostatic perturbation (PRCP)",
        reads = c("fit_prcp", "data"), writes = "prcp", used_in = "Result 3: tilts and stand-ups, pressure response, lagged correlation, dose-response, responses by maneuver (Figures 3 and 4; S6 and S7)"),
-  step("06", "06_fantasia.R", "Aging, respiration, baroreflex (Fantasia)",
+  step("06", "datasets/06_fantasia.R", "Aging, respiration, baroreflex (Fantasia)",
        reads = c("fit_fantasia", "data"), writes = "fantasia", used_in = "Result 4: group contrasts, stability, respiration and baroreflex (Figures 5 and 6)"),
-  step("07", "07_recovery_benchmark.R", "Choice of the recovery definition",
+  step("07", "validation/07_recovery_benchmark.R", "Choice of the recovery definition",
        reads = character(), writes = "recovery_choice", used_in = "Recovery definition (Figure S3)"),
-  step("08", "08_event_detection_validation.R", "RR-based event detection on simulations",
+  step("08", "validation/08_event_detection_validation.R", "RR-based event detection on simulations",
        reads = character(), writes = "event_detection", used_in = "Event detection (Figure S5)"),
-  step("09", "09_exercise.R", "Exercise and recovery (TMST)",
+  step("09", "datasets/09_exercise.R", "Exercise and recovery (TMST)",
        reads = c("fit_exercise", "recovery_choice?"), writes = "exercise", used_in = "Result 5 (Figure 7; S6)"),
-  step("10", "10_hrv_comparators.R", "SDNN / RMSSD / LF/HF comparators",
+  step("10", "validation/10_hrv_comparators.R", "SDNN / RMSSD / LF/HF comparators",
        reads = c("fit_prcp", "fit_fantasia", "fit_exercise", "prcp?", "exercise?"), writes = "hrv", used_in = "HRV comparators"),
-  step("11", "11_supplement_checks.R", "Bound, calibration, equivalence checks",
+  step("11", "validation/11_supplement_checks.R", "Bound, calibration, equivalence checks",
        reads = c("fit_prcp?", "fit_fantasia?", "fit_exercise?"), writes = "supp_checks", used_in = "Bound, calibration, equivalence checks (Figure S4)"),
-  step("12", "12_preprocessing_checks.R", "Data-preparation checks",
+  step("12", "validation/12_preprocessing_checks.R", "Data-preparation checks",
        reads = character(), writes = "prep_checks", used_in = "Data-preparation checks (earlier vs current format, cleaning gate)"),
   step("13", "13_figures.R", "All figures",
        reads = "*", writes = "figure_info", files = "{figures}", used_in = "All figures (look and examples: `cfg$figures`)")

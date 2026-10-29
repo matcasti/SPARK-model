@@ -1,6 +1,6 @@
 # ==============================================================================
 # R/steps/prcp.R -- Result 3: orthostatic perturbation (PRCP tilt-table recordings).
-# Called by analysis/05_prcp.R. A recording holds several tilts; each tilt is one event, analysed against its
+# Called by analysis/datasets/05_prcp.R. A recording holds several tilts; each tilt is one event, analysed against its
 # own baseline (tilt_windows()). prcp_analyse_recording() chains the steps below; the per-event tables are
 # condensed to one row per recording (median over its events) before any between-recording statistic.
 #

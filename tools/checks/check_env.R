@@ -1,7 +1,7 @@
 # ==============================================================================
-# tools/check_env.R -- is this machine able to run the project?
-#   Rscript tools/check_env.R          prints the report; exit status 1 when a required package is missing
-#   source("tools/check_env.R"); check_environment()   the same, returning the table invisibly
+# tools/checks/check_env.R -- is this machine able to run the project?
+#   Rscript tools/checks/check_env.R          prints the report; exit status 1 when a required package is missing
+#   source("tools/checks/check_env.R"); check_environment()   the same, returning the table invisibly
 #
 #   required     the analysis scripts stop without them
 #   recommended  figures and speed: ragg/systemfonts/svglite draw the symbols, a C++ compiler runs the multi-start fits ~10x faster

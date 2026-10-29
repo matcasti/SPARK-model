@@ -1,6 +1,6 @@
 # ==============================================================================
 # R/steps/sensitivity.R -- how much do the reconstructions depend on the physiological
-# hyperparameters? Called by analysis/04_sensitivity.R. Reference model: M3;
+# hyperparameters? Called by analysis/model/04_sensitivity.R. Reference model: M3;
 # every setting is refitted from the engine's start values.
 #
 #   sensitivity_hyperparameters()  one hyperparameter changed at a time

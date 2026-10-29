@@ -1,6 +1,6 @@
 # ==============================================================================
 # R/steps/exercise.R -- Result 5: exercise and recovery (two-minute step test, TMST).
-# Called by analysis/09_exercise.R. Only RR is available, so the rest / exercise / recovery
+# Called by analysis/datasets/09_exercise.R. Only RR is available, so the rest / exercise / recovery
 # phases are detected from heart rate (R/signals/events.R); no subject characteristics or clinical
 # outcomes exist for this cohort, so no association analyses are performed.
 #
@@ -16,7 +16,7 @@
 
 # ---- Settings -------------------------------------------------------------------------------------
 #' Recovery definition and exercise-end rule. "auto" reads the choice made by
-#' analysis/07_recovery_benchmark.R (falls back to 'expfit' / 'profile' when it has not run).
+#' analysis/validation/07_recovery_benchmark.R (falls back to 'expfit' / 'profile' when it has not run).
 exercise_settings <- function(cfg, recovery_choice) {
   setting <- function(configured, benchmark_field, fallback) {
     if (!identical(configured, "auto")) return(configured)
@@ -24,7 +24,7 @@ exercise_settings <- function(cfg, recovery_choice) {
     recovery_choice$choice[[benchmark_field]]
   }
   if (identical(cfg$exercise$recovery_definition, "auto") && is.null(recovery_choice)) {
-    log_msg("recovery_choice.rds not found: run analysis/07_recovery_benchmark.R first; using 'expfit'.")
+    log_msg("recovery_choice.rds not found: run analysis/validation/07_recovery_benchmark.R first; using 'expfit'.")
   }
   list(recovery_definition = setting(cfg$exercise$recovery_definition, "definition", "expfit"),
        end_method = setting(cfg$exercise$end_method, "end_method", "profile"))

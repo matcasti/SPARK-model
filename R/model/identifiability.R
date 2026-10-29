@@ -1,7 +1,7 @@
 # ==============================================================================
 # R/model/identifiability.R -- is the latent decomposition identified by RR alone?
 # Dispersed multi-start fits of a specification, ambiguity metrics, and profile surfaces
-# over (tau_p, tau_s). Called by analysis/03_identifiability.R.
+# over (tau_p, tau_s). Called by analysis/model/03_identifiability.R.
 #
 #   draw_start_params()   dispersed starting values, shared across specifications
 #   run_multistart()      fit one specification from every start
