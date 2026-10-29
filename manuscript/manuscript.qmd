@@ -1,0 +1,446 @@
+---
+title: "SPARK: Physiology-informed inference of latent cardiac autonomic dynamics from RR intervals"
+---
+
+```{r}
+#| label: set-up
+#| include: false
+library(data.table)
+source("../R/report/manuscript_text.R")          # text generated from the results (see that file)
+source("../R/report/symbols.R")                  # notation of figures and tables (LaTeX labels of the result variables)
+file.copy("../engine/model_engine.R", to = "model_code.R", overwrite = TRUE)   # deposited code: the engine
+file.copy("../results/df_population_summary.rds", to = "df_population_summary.rds", overwrite = TRUE)
+load_result <- function(n) { f <- file.path("../results", paste0(n, ".rds")); if (file.exists(f)) readRDS(f) else NULL }
+
+df_all   <- readRDS("df_population_summary.rds")
+n_total  <- nrow(df_all)
+n_conv   <- sum(df_all$Converged, na.rm = TRUE)
+pct_conv <- sprintf("%.1f", 100 * n_conv / n_total)
+df       <- subset(df_all, Converged == TRUE)
+tab      <- table(df$Dataset)
+ds_counts <- paste0(names(tab), " (n = ", as.integer(tab), ")", collapse = ", ")
+
+mape <- median_range_text(df$MAPE_pct, 3, "%"); rmse <- median_range_text(df$RMSE_ms, 3, " ms")
+n_valid     <- if ("NumValidBeats" %in% names(df)) df$NumValidBeats else df$NumBeats
+ks_dist     <- median_range_text(df$KS_Stat, 3)
+mean_crit_d <- sprintf("%.4f", mean(1.36 / sqrt(n_valid)))
+pct_below_d <- sprintf("%.1f%%", 100 * mean(df$KS_Stat < 1.36 / sqrt(n_valid)))
+frac_below_d <- mean(df$KS_Stat < 1.36 / sqrt(n_valid))
+pct_exceed_d <- sprintf("%.1f%%", 100 * (1 - frac_below_d))
+cfg_used <- load_result("config_used"); if (!is.null(cfg_used$cfg)) cfg_used <- cfg_used$cfg
+used <- function(path, default = "[PENDING]") { v <- tryCatch(Reduce(function(x, n) x[[n]], strsplit(path, "$", fixed = TRUE)[[1]], cfg_used), error = function(e) NULL); if (is.null(v) || !length(v)) default else v }
+minus <- function(x) gsub("-", "\u2212", x, fixed = TRUE)
+pacf_viol   <- if ("PACF_Violations" %in% names(df)) sprintf("%.1f", mean(df$PACF_Violations)) else "[PENDING]"
+kp_mean <- median_range_text(df$Kappa_P, 2, " s$^{-1}$"); taup_mean <- median_range_text(1 / df$Kappa_P, 2, " s")
+ks_mean <- median_range_text(df$Kappa_S, 3, " s$^{-1}$"); taus_mean <- median_range_text(1 / df$Kappa_S, 1, " s")
+
+ident  <- load_result("identifiability"); sensitivity <- load_result("sensitivity"); sim_recovery <- load_result("sim_recovery")
+pp_tau_p_in <- if (!is.null(sensitivity)) mean(as.data.frame(sensitivity$prior_posterior)$in_prior_tau_p) else NA_real_
+fantasia_physiology <- if (!is.null(load_result("fantasia"))) load_result("fantasia")$physiology else NULL
+fantasia_has_bp <- !is.null(fantasia_physiology) && "alpha_LF" %in% names(fantasia_physiology) && any(is.finite(fantasia_physiology$alpha_LF))
+fantasia_n_resp <- if (!is.null(fantasia_physiology) && "resp_sd_x_p" %in% names(fantasia_physiology)) sum(is.finite(fantasia_physiology$resp_sd_x_p)) else NA_integer_
+fantasia_signals_text <- if (fantasia_has_bp) "`r fantasia_signals_text`" else sprintf("respiration for %s of %s subjects and no blood pressure", fantasia_n_resp, if (is.null(fantasia_physiology)) NA else nrow(fantasia_physiology))
+bp_methods_text <- if (fantasia_has_bp) "`r bp_methods_text`" else " The Fantasia recordings contain no arterial pressure, so baroreflex measures are not computed for them; arterial pressure is used only in the PRCP recordings."
+tau_p_limit <- if (is.finite(pp_tau_p_in) && pp_tau_p_in < 0.5) paste0(" The vagal-like time constant lay inside its 95% prior interval in ", pct(pp_tau_p_in), " of recordings, so it should not be read as a strictly vagal time constant: the faster drive may absorb slower fluctuations, such as baroreflex-related oscillations.") else ""
+prcp  <- load_result("prcp"); fantasia <- load_result("fantasia"); exercise <- load_result("exercise"); hrv <- load_result("hrv"); checks <- load_result("supp_checks")
+identifiability_metrics <- if (!is.null(ident)) ident$metrics else NULL
+ident_range <- function(sp, col, d = 2) txt(median_range_text(identifiability_metrics[spec == sp][[col]], d))
+
+config_used <- load_result("config_used"); figure_info <- load_result("figure_info")
+```
+
+:::{.callout-note appearance="simple" icon=false}
+## Highlights
+
+{{< include highlights.md >}}
+:::
+
+**Abstract**
+
+Cardiac autonomic regulation is observed only through beat-to-beat (RR) intervals, and separating their variability into parasympathetic-like and sympathetic-like components is an inverse problem that RR alone is not expected to solve uniquely. We introduce SPARK (Stochastic Phase-domain Autonomic Reconstruction Kinetics), a physiology-informed stochastic state-space framework in which two independent Ornstein–Uhlenbeck drives modulate sinoatrial pacing through an integrate-and-fire phase. Conditioning on each observed interval yields a conditionally linear-Gaussian measurement equation and exact continuous-time filtering across irregular intervals. Time-scale priors, a kinetic ordering constraint and a wavelet-derived spectral partition restrict the admissible latent solutions. Across recordings, `r abstract_identifiability(ident)`; the innovation diagnostics `r diagnostics_clause(frac_below_d, brief = TRUE)`. Reconstructions were then examined: `r abstract_prcp(prcp)`; `r abstract_aging(fantasia)`; and `r abstract_exercise(exercise)`. SPARK offers a model-conditional description of autonomic trajectories complementing conventional heart rate variability; the split of a stressor-induced change between the drives remained sensitive to the spectral anchor, and latent states are reconstructions, not measurements of neural activity.
+
+**Keywords**: Stochastic dynamics, State-space estimation, Identifiability, First-passage time, Autonomic nervous system, Heart rate variability, Integrate-and-fire
+
+# Introduction
+
+Cardiac autonomic regulation operates over multiple time scales. The sinoatrial node, the primary chronotropic interface, translates continuous neural efferent traffic into a sequence of discrete cardiac contractions [@kashou2017physiology; @hennis2024pacemaker]. Parasympathetic signaling, mediated by acetylcholine, acts rapidly to slow pacemaker firing, whereas sympathetic signaling, mediated by norepinephrine, acts more slowly to accelerate it [@maltsev2023novel; @varzideh2026autonomic; @liu2026emerging]. Physiological challenges such as postural change or exercise therefore elicit time-resolved autonomic responses, including withdrawal of vagal influence, delayed sympathetic engagement and subsequent recovery, whose time courses are of physiological interest in their own right [@saul2021heart].
+
+The inter-beat (RR) interval series is the most accessible observable of this regulation, but it reflects the integrated influence of several physiological processes rather than the activity of either autonomic branch itself [@maltsev2023novel]. Direct measurement of cardiac efferent nerve activity requires invasive recording and is technically constrained [@verma2023microneurography], and the growing use of wearable and photoplethysmographic acquisition further motivates inference from interval data alone [@rahman2025photoplethysmography]. Recovering the latent autonomic dynamics that give rise to RR is therefore, in practice, a problem of inference from an indirect observable [@saul2021heart; @rosas2024bayesian].
+
+Heart rate variability (HRV) analysis has long provided the standard non-invasive description of RR variability, summarizing the series with time-domain statistics and frequency-domain spectral measures [@saul2021heart; @liu2025heart; @arya2024multi]. These descriptors are widely used and informative, but they quantify the output of the system rather than offering a generative representation of its latent dynamics. Conventional spectral partitioning assumes stationarity, which is not satisfied during transient perturbations [@kim2021ultra; @saul2021heart], and the low-frequency band reflects a mixture of sympathetic, vagal and baroreflex influences [@moak2007supine; @liu2025heart]. Descriptive measures also do not model how interval timing is generated by the sinoatrial pacemaker [@saul2021heart].
+
+Generative alternatives treat the sinoatrial node as an integrate-and-fire oscillator in which a phase accumulates at a rate set by autonomic inputs and a beat occurs when the phase reaches a threshold [@yang2023multiscale; @maltsev2023novel; @candia2021integral; @adamczyk2025online]. For a drift–diffusion phase, interval durations follow an inverse Gaussian distribution [@barbieri2005point; @lin2026dynamic]. Embedding this mechanism in a state-space model, however, requires solving a nonlinear first-passage problem, which is usually handled by local linearization, sigma-point filtering or Euler–Maruyama discretization [@rosas2024bayesian; @ding2024high; @amor2018constrained]. Such approximations can distort the continuous-time dynamics across irregular intervals [@rosas2024bayesian]. Deep-learning models, although effective for pattern recognition in interval series, do not by themselves yield latent variables with explicit physiological meaning or interpretable kinetic parameters.
+
+A second and conceptually distinct difficulty concerns identification. If RR is regarded as the outcome of a parasympathetic-like process, a sympathetic-like process and observation noise, recovering the two processes from a single interval series is an inverse problem [@candia2025robust]. Different combinations of time scales, amplitudes and noise can generate similar interval series, so the observations alone are not guaranteed to determine a unique decomposition. Under these conditions, unconstrained maximum-likelihood estimation can produce likelihood ridges, scale ambiguities and blending of the two processes [@candia2025robust].
+
+A good fit to RR is therefore necessary but not sufficient evidence of a meaningful decomposition: a solution may reproduce the observed intervals closely and still be physiologically implausible, for example by attributing all variability to one process or by assigning implausible time scales. We consider independent physiological information not as a device to improve fit, but as part of the identification structure that defines which latent solutions are admissible. Two sources are used here: the characteristic time scales of vagal and sympathetic effector responses together with the ordering of their kinetics [@hennis2024pacemaker; @maltsev2023novel], and spectral evidence, including seminal pharmacological-blockade studies, on how modulation by the two branches is distributed across frequency [@Akselrod1981; @Pomeranz1985; @Taylor1998]. These assumptions are explicit and external to the RR data, and the extent to which they shape the inferred trajectories is itself something that should be examined rather than taken for granted.
+
+We implement this strategy in SPARK (Stochastic Phase-domain Autonomic Reconstruction Kinetics). The model treats each recorded RR interval as a deterministic observation window and asks what accumulated phase is implied at its end. This replaces the strict first-passage condition with a terminal-threshold condition that approximates it closely in the high-drift, low-noise regime of the sinoatrial node [@reith2023approximate], and it renders the measurement equation Gaussian and linear in the time-integrals of the latent drives [@hughes2017estimation; @sarkka2020temporal]. The drives are modeled as independent, mean-reverting Ornstein–Uhlenbeck processes [@garcia2024ornstein] whose running integrals are appended to the state vector, so that transitions across irregular intervals are computed analytically. Baseline pacing and the global variance scale are profiled out of the likelihood, the remaining kinetic parameters are estimated by maximum a posteriori (MAP) inference, and the physiological information described above enters through priors and a spectral anchor. We are not aware of an earlier application of this combination of phase-domain conditioning, exact continuous-time propagation and an explicit physiological identification structure to RR-interval inference. In the language of nonlinear stochastic dynamics, the model is a pair of mean-reverting processes with well-separated time scales that drive a threshold-crossing phase oscillator with resetting, and the question is how much of this hidden structure can be recovered from the crossing times alone.
+
+We evaluated the framework in sequence. We first examined whether RR alone leaves the latent decomposition under-determined and whether physiological information reduces this ambiguity. We then asked whether the resulting latent states show the expected direction of change during an orthostatic perturbation, how they behave across healthy aging in young and older adults, and whether they characterize adaptation and recovery in older adults performing a rest–exercise–rest protocol. Conventional HRV descriptors are used throughout as comparators rather than competitors, and independent measurements available in subsets of the recordings (tilt angle, arterial pressure and respiration) serve as external comparators and are not inputs to the model. We emphasize at the outset that the latent states are model-based reconstructions conditional on the stated assumptions, and that the aim is a model-based description of autonomic dynamics, not a direct measurement of neural activity.
+
+# Methods
+
+The conceptual model, its latent dynamics and observation model, the identification structure that restricts the admissible latent solutions, inference and diagnostics, and then the three datasets used to evaluate perturbation, aging and exercise recovery. Implementation details are provided in the supplementary material, and numerical settings are those of the default configuration of the accompanying R engine, listed in the supplementary material; the configuration of every analysis is stored with the results.
+
+## Conceptual model
+
+SPARK represents the sinoatrial node as an integrate-and-fire pacemaker whose net drift is modulated by two latent autonomic drives. Let $\phi(t)$ denote the sinoatrial phase, which is set to zero after each heartbeat and evolves as a drift–diffusion process,
+
+$$
+d\phi(t) = \nu(t)\,dt + \sigma_z\,dW(t), \qquad \nu(t) = \nu_0 - x_p(t) + x_s(t),
+$$
+
+where a beat occurs when $\phi$ reaches a normalized threshold of $1$ [@maltsev2023novel; @candia2021integral]. The net drift $\nu(t)$ is the instantaneous pacing rate (Hz), $\nu_0$ is an intrinsic baseline rate, $\sigma_z$ is the diffusion coefficient of threshold-level noise, and $x_p(t)$ and $x_s(t)$ are latent parasympathetic-like and sympathetic-like drives, expressed in Hz as deviations from their homeostatic baseline. Hereafter we refer to them as the vagal and sympathetic drives for brevity. These labels denote the model components that are distinguished by their kinetics and spectral allocation (see *Identification structure*); they do not denote directly measured neural activity.
+
+## Latent autonomic dynamics
+
+The drives are modeled as independent, mean-reverting Ornstein–Uhlenbeck (OU) processes, which represent the tendency of each branch to return to its homeostatic level after a transient stimulus [@garcia2024ornstein; @hennis2024pacemaker]:
+
+$$
+\begin{aligned}
+dx_p(t) &= -\kappa_p x_p(t)\,dt + \sigma_p\,dW_p(t),\\
+dx_s(t) &= -\kappa_s x_s(t)\,dt + \sigma_s\,dW_s(t),
+\end{aligned}
+$$
+
+where $\kappa_p$ and $\kappa_s$ are clearance rates (s$^{-1}$) with associated e-folding times $\tau_p = 1/\kappa_p$ and $\tau_s = 1/\kappa_s$. In a standard OU process, amplitude and memory are entangled through the stationary variance $V = \sigma^2/(2\kappa)$. To keep amplitude independent of kinetics, the diffusion coefficients are parameterized as $\sigma_p = \sqrt{2\kappa_p V_p}$ and $\sigma_s = \sqrt{2\kappa_s V_s}$, so that $V_p$ and $V_s$ are the stationary variances of the two drives. A single global scale $\sigma^2_{sys}$ multiplies all variances, with $V_s = \sigma^2_{sys}$ and $V_p = \lambda_P\,\sigma^2_{sys}$, where $\lambda_P = V_p/V_s$ is the relative vagal-to-sympathetic variance. Because $\sigma^2_{sys}$ acts uniformly on all process and measurement covariances, it factors out of the Kalman gain and can be profiled analytically (see *Inference and uncertainty*).
+
+To make the observation equation linear, the state is augmented with the running integrals of the drives, $dI_p(t) = x_p(t)\,dt$ and $dI_s(t) = x_s(t)\,dt$, giving $\tilde{X}(t) = [x_p(t), x_s(t), I_p(t), I_s(t)]^\top$ and
+
+$$
+d\tilde{X}(t) = A\,\tilde{X}(t)\,dt + G\,dW(t), \qquad
+A = \begin{bmatrix} -\kappa_p & 0 & 0 & 0 \\ 0 & -\kappa_s & 0 & 0 \\ 1 & 0 & 0 & 0 \\ 0 & 1 & 0 & 0 \end{bmatrix}, \quad
+G = \begin{bmatrix} \sigma_p & 0 \\ 0 & \sigma_s \\ 0 & 0 \\ 0 & 0 \end{bmatrix}.
+$$
+
+Because $A$ is constant, the discrete-time transition over any observed interval $\Delta t_k$ is exact: $\Phi_k = \exp(A\,\Delta t_k)$, with a closed-form process covariance $Q_k$ (see the ["Matrix exponential"](supplementary.qmd#sec-matrix-exponential) and ["Estimation algorithm"](supplementary.qmd#sec-estimation-algorithm) sections of the supplementary material). For $\kappa\,\Delta t_k < 10^{-3}$, truncated Taylor expansions replace the closed forms to avoid numerical cancellation. The model quantities used throughout are summarized in @tbl-state-vector.
+
+| Symbol | Description | Estimation status |
+| :--- | :--- | :--- |
+| $x_p(t),\ x_s(t)$ | Latent vagal and sympathetic drives (Hz, deviations from baseline) | Reconstructed (filtered) |
+| $I_p(t),\ I_s(t)$ | Running time-integrals of the drives since the last beat | Reconstructed (filtered) |
+| $\nu_0$ | Intrinsic baseline pacing rate (Hz) | Profiled (GLS) |
+| $\sigma^2_{sys}$ | Global variance scale | Profiled (concentrated ML) |
+| $\kappa_p,\ \kappa_s$ ($\tau_p,\ \tau_s$) | Clearance rates (e-folding times) of the vagal and sympathetic drives | Estimated (MAP) |
+| $\lambda_P = V_p/V_s$ | Relative vagal-to-sympathetic stationary variance | Fixed from wavelet spectral partition |
+| $\lambda_R$ | Threshold-jitter variance rate, relative to $\sigma^2_{sys}$ | Estimated (MAP) |
+
+: Quantities of the augmented state-space model {#tbl-state-vector}
+
+<!---
+![The framework. (A) Generative model: two independent Ornstein–Uhlenbeck drives, a fast vagal-like $x_p$ and a slow sympathetic-like $x_s$, set the net rate $\nu(t) = \nu_0 - x_p(t) + x_s(t)$ of an integrate-and-fire sinoatrial phase that is reset at each beat; the beat times give the observed RR intervals, with timing jitter. (B) Inference pipeline: a state-space model with augmented state $\tilde{X}_k = [x_p, x_s, I_p, I_s]^{\mathrm{T}}$ (the drives and their integrals over the beat), exact Ornstein–Uhlenbeck propagation over the irregular beat intervals, observation noise whose variance is inflated at abrupt RR jumps, generalized least squares profiling of $\nu_0$ and $\sigma^2$ and maximum a posteriori estimation (BFGS) of the remaining parameters. (C) Physiological identification: priors on the time scales, the kinetic ordering $k_p > k_s$ and the timing jitter; the spectral energy partition (logistic weights $w_p$ and $w_s$ with a vagal floor fraction $\rho$) that fixes the wavelet-derived variance ratio $\lambda_P = V_p/V_s$ before the optimization; and the outputs of the framework. The traces in (A) and the results strip are not data from a participant: a recording was simulated from the model and fitted with the model (latent drives with 95% intervals, implied and observed RR, phase-plane path, wavelet spectrum of the heart rate and innovation diagnostics). The weight curves illustrate the formulas.](figures/fig0_schematic.png){#fig-schematic width=100%}
+--->
+
+## Observation model: phase-domain inversion
+
+In the strict first-passage formulation, the observed interval is the random time $T = \inf\{t > 0 : \phi(t) \ge 1\}$, whose distribution is inverse Gaussian for a constant drift [@barbieri2005point]. Estimating a time-varying drift from this distribution within a state-space model is a nonlinear problem, which standard approaches address through local linearization or sigma-point filtering [@rosas2024bayesian; @ding2024high]. We instead condition on the observed interval. Rather than treating $T$ as a random variable evaluated against an absorbing boundary, we treat the recorded duration $\Delta t_k$ as a fixed window and ask what accumulated phase is implied at its end. Under a terminal-threshold condition, the phase accumulated over $[t_{k-1}, t_k]$ equals one:
+
+$$
+1 = \nu_0\,\Delta t_k - \int_{t_{k-1}}^{t_k} x_p(t)\,dt + \int_{t_{k-1}}^{t_k} x_s(t)\,dt + v_k .
+$$
+
+In this expression, $v_k$ collects the Gaussian threshold-level noise, $\int \sigma_z\,dW$, which has variance $\sigma_z^2\,\Delta t_k$ with $\sigma_z^2 = \sigma^2_{sys}\lambda_R$. The terminal-threshold condition neglects paths that cross the threshold and subsequently return below it within one interval. This approximation becomes accurate when the drift is large relative to the noise, and we provide an explicit bound on the neglected term in the ["Asymptotic convergence"](supplementary.qmd#sec-phase-mapping) section of the supplementary material. In the augmented state, the observation is a linear function of the integral states,
+
+$$
+1 - \nu_0\,\Delta t_k = H\,\tilde{X}_k + v_k, \qquad H = [0,\ 0,\ -1,\ 1],
+$$
+
+so that, conditional on the terminal-threshold model, standard Kalman recursions apply without further approximation. After each measurement update, the integral states and their covariances are reset to zero, whereas $x_p$ and $x_s$ continue to evolve; this hybrid continuous–discrete reset represents the restart of phase accumulation at each beat while preserving the trans-beat memory of the drives.
+
+The linear-Gaussian formulation is sensitive to ectopic beats and detection artifacts. To limit their influence, the threshold-noise variance at beat $k$ is multiplied by $\mu_k = 1 + (J_k/\theta_J)^{p_J}$, where $J_k$ is the largest relative change between adjacent RR intervals at that beat, $\theta_J = 0.25$ and $p_J = 10$. This inflation drives the Kalman gain toward zero for abrupt jumps without interrupting the propagation of the latent drives. Because $J_k$ references the adjacent intervals on both sides, the multiplier is not strictly causal; it affects only the weighting of the observation and not the dynamics of the latent drives. Beats with $\mu_k \ge 100$ are excluded from the estimation of $\sigma^2_{sys}$ and from the likelihood. This is a heuristic robustness device and not a model of arrhythmia, so recordings with substantial non-sinus activity are outside the intended scope of the framework.
+
+## Identification structure
+
+The decomposition of RR into two latent drives is not guaranteed to be unique, and we therefore make the physiological information that restricts the admissible solutions explicit (@tbl-identification). The elements fall into three groups: structural constraints, time-scale information, and spectral information.
+
+| Component | Form | Rationale | Default setting |
+| :--- | :--- | :--- | :--- |
+| Positivity and kinetic ordering | $\kappa_s = e^{\theta_1}$, $\kappa_p = \kappa_s + e^{\theta_2}$ | Positive rates; vagal kinetics faster than sympathetic | Structural |
+| Time-scale priors | Log-normal on $\tau_p$ and $\tau_s$ | Rapid vagal and slow sympathetic effector kinetics | 95% intervals: $\tau_p$ [3, 6] s; $\tau_s$ [100, 300] s |
+| Separation prior | Beta on $U = (\kappa_p - \kappa_s)/(\kappa_p + \kappa_s)$ | Discourages collapse of the two time scales | Mode at $\kappa_p/\kappa_s = 20$; weight 10 |
+| Spectral anchor | $\lambda_P$ fixed from partitioned wavelet energy | Allocates variance between branches by frequency | Crossover 0.10 Hz; band 0.04–0.40 Hz; vagal floor fraction 0.25 |
+| Timing-jitter prior | Log-normal on equivalent RR timing jitter | Limits absorption of autonomic variance by the noise term | 95% interval [0.5, 20] ms |
+
+: Components of the identification structure {#tbl-identification}
+
+**Structural constraints.** Exponential links ensure positive rates, and the parameterization $\kappa_p = \kappa_s + \exp(\theta_2)$ imposes $\kappa_p > \kappa_s$, which removes the label-switching permutation between the two drives.
+
+**Time-scale information.** Independent log-normal priors are placed on $\tau_p$ and $\tau_s$, and a Beta prior on $U$ discourages the two time scales from collapsing onto one another. The default intervals reflect the expected separation between rapid vagal and slow sympathetic effector kinetics [@hennis2024pacemaker; @maltsev2023novel] The defined limits for $\tau_p$ align with the rapid system dynamics of parasympathetic signaling and typical respiratory cycles. Meanwhile, the defined limits for $\tau_s$ are consistent with the physiological inertia and low-pass transfer functions observed during sympathetic modulation [@warner1962mathematical; @Pomeranz1985; @saul1991transfer]. These priors are fixed across recordings and are not derived from the individual series.
+
+**Spectral information.** The ratio $\lambda_P = V_p/V_s$ is computed from the observed series as a deterministic function of its time-frequency energy and is held fixed during optimization. Heart rate (Hz) is interpolated onto a 4 Hz grid, transformed with a Morlet continuous wavelet transform (CWT), and averaged over time within the cone of influence to obtain a global wavelet spectrum [@gruszecki2023wavelet; @zhuravlev2025continuous]. This spectrum is then partitioned into vagal and sympathetic energy using logistic frequency weights. Sympathetic weight dominates at low frequencies, the vagal weight rises with a crossover at 0.10 Hz, and the sympathetic weight falls to 5% at the LF/HF boundary of 0.15 Hz, while the vagal branch retains a floor fraction of the low-frequency weight to reflect its contribution under non-stationarity. The weights encode external evidence on how modulation by the two branches is distributed across frequency, including pharmacological-blockade studies [@Akselrod1981; @Pomeranz1985; @Hayano1991; @hopf1995low; @Taylor1998]. Because $\lambda_P$ is computed from the same series that is being fitted, it is data-informed but not independent of the data; the physiological information resides in the weighting function. Equating the ratio of partitioned spectral energies with the ratio of latent stationary variances is an approximation (see the ["Estimation algorithm"](supplementary.qmd#sec-estimation-algorithm) section of the supplementary material).
+
+The prior on equivalent RR timing jitter, with a 95% interval of 0.5–20 ms, spans the range expected for electrocardiographic and photoplethysmographic acquisition. The complete list of hyperparameters is given in the supplementary material. These specifications are model assumptions informed by external evidence. They are not estimated from the present data, and their influence on the inferred trajectories is evaluated in the identifiability analyses described below.
+
+## Inference and uncertainty
+
+For a given parameter vector, the Kalman recursion processes the observed intervals sequentially, with innovations $v_k^{(0)} = 1 - H\tilde{X}^{(0)}_{k|k-1}$ and innovation variances $S_k = H P_{k|k-1} H^\top + \lambda_R\,\mu_k\,\Delta t_k$ (expressed in units of $\sigma^2_{sys}$). The covariance update uses the Joseph form to preserve symmetry and positive semidefiniteness.
+
+The baseline $\nu_0$ enters the observation equation linearly, which allows it to be profiled out by generalized least squares. Two filters share a single Kalman gain: a stochastic filter evaluates the data assuming $\nu_0 = 0$ and returns innovations $v_k^{(0)}$, and a deterministic filter propagates the response to the interval durations and returns $v_k^{(\nu)} = \Delta t_k - H\tilde{X}^{(\nu)}_{k|k-1}$. The baseline and the global scale are then obtained analytically as
+
+$$
+\hat{\nu}_0 = \frac{\sum_{k} v_k^{(0)} v_k^{(\nu)} / S_k}{\sum_{k} \left(v_k^{(\nu)}\right)^2 / S_k}, \qquad
+\hat{\sigma}^2_{sys} = \frac{1}{n_{\mathrm{eff}}} \sum_{k \in \mathcal{K}} \frac{\left(v_k^{(0)} - \hat{\nu}_0 v_k^{(\nu)}\right)^2}{S_k},
+$$
+
+where $\mathcal{K}$ is the set of $n_{\mathrm{eff}}$ beats with artifact multiplier $\mu_k < 100$. The resulting profiled log-likelihood is $\mathcal{L}^* = -\tfrac{1}{2}\sum_{k \in \mathcal{K}} \ln S_k - \tfrac{n_{\mathrm{eff}}}{2}\ln\hat{\sigma}^2_{sys}$.
+
+The remaining parameters $\theta = (\ln\kappa_s,\ \ln(\kappa_p - \kappa_s),\ \ln\lambda_R)$ are estimated by minimizing the negative log-posterior, defined as the negative profiled log-likelihood plus the negative log-prior terms of @tbl-identification. Optimization uses BFGS from a single start at the centers of the time-scale priors ($\lambda_{R,0} = 10^{-3}$). The reconstructed states are the forward-filtered (causal) estimates $\hat{X} = \tilde{X}^{(0)} - \hat{\nu}_0\,\tilde{X}^{(\nu)}$, and their variances include the uncertainty in $\hat{\nu}_0$. Reported 95% intervals for the states and for the filtered RR are therefore conditional on the MAP kinetic parameters and do not incorporate uncertainty in those parameters. Standard errors for $\kappa_p$, $\kappa_s$ and $\lambda_R$ are obtained from the numerical Hessian of the MAP objective (with a pseudo-inverse to tolerate near-singularity) and the delta method, with $\mathrm{Var}(\tau) \approx \mathrm{Var}(\kappa)/\kappa^4$. Profiled, fixed and derived quantities carry no standard error. Algorithmic details are provided in the ["Estimation algorithm"](supplementary.qmd#sec-estimation-algorithm) section of the supplementary material.
+
+The model was implemented in R, and a browser-based implementation with the same specification (default settings as in this study: $M_3$, vagal floor 0.25) is available for single recordings (see Code availability).
+
+## Model diagnostics
+
+*Fit and convergence.* Convergence is defined by the optimizer return code. Filtered tracking accuracy is quantified by the mean absolute percentage error (MAPE) and root mean square error (RMSE) between the observed and filtered implied RR. These are in-sample measures, because the implied RR at each beat uses states updated with that beat, and they should not be interpreted as out-of-sample prediction error.
+
+*Innovation diagnostics.* The standardized innovations $z_k = v_k/\sqrt{\hat\sigma^2_{sys}S_k}$ should be independent standard normal variates if the model is adequate. We applied the time-rescaling principle by testing $u_k = \Phi(z_k)$ against the uniform distribution with the Kolmogorov–Smirnov (KS) distance $D$, and compared $D$ with the approximate recording-specific critical value $1.36/\sqrt{N}$. Because parameters are estimated from the same data, this critical value is approximate; its behavior under a correctly specified model was examined by simulation (supplementary material). To avoid reliance on dichotomous $p$-value thresholds in long recordings, we report the distribution of $D$ across recordings. Serial dependence was assessed with the partial autocorrelation function (PACF) of $z_k$ over 40 lags, with bounds at $\pm 1.96/\sqrt{N}$. Diagnostics used beats with artifact multiplier below 1.5 and innovations standardized without the artifact inflation. The relationship between the classical time-rescaling theorem and the phase-domain innovations is described in the ["Goodness-of-fit diagnostic"](supplementary.qmd#sec-diagnostics) section of the supplementary material.
+
+## Identifiability analyses {#sec-identifiability-methods}
+
+*Model specifications.* To evaluate whether RR alone identifies the decomposition and whether physiological information reduces the ambiguity, four nested specifications were compared (@tbl-specs). The specification $M_3$, which combines all the physiological information, is the one used for the fit diagnostics and for the perturbation, aging and exercise analyses. All specifications retain the structural constraints of @tbl-identification (positivity and $\kappa_p > \kappa_s$), so that the comparison does not include label switching between the two drives. In $M_0$ and $M_1$, $\lambda_P$ is a free parameter (estimated jointly), whereas in $M_2$ and $M_3$ it is fixed by the spectral anchor. The specifications are implemented as alternative assemblies of the engine's own likelihood and log-prior terms, and the compiled filter used inside the optimizer was verified against the engine's filter (supplementary material).
+
+| Specification | Time-scale and separation priors | Spectral anchor ($\lambda_P$ fixed) | Timing-jitter prior |
+| :--- | :---: | :---: | :---: |
+| $M_0$ (RR only) | no | no | no |
+| $M_1$ (RR + time-scale constraints) | yes | no | no |
+| $M_2$ (RR + spectral evidence) | no | yes | no |
+| $M_3$ (combined) | yes | yes | yes |
+
+: Model specifications used in the identifiability analyses {#tbl-specs}
+
+*Dispersed multi-start fits.* For each recording, each of $M_0$–$M_3$ was fitted by BFGS from the same set of $n_{start}$ starting points (`r used("identifiability$n_starts")` in this study), the first being the engine default and the others drawn log-uniformly over wide ranges, so that differences reflect the specification and not the starting values; the analysis was applied to a deterministic random subset of up to `r used("identifiability$max_recordings")` recordings per dataset (balanced across groups in the Fantasia database). For each recording and specification we computed the number of *distinct solutions* (greedy clustering of the estimates in $(\ln\tau_p, \ln\tau_s)$), the *near-equivalent fits* (profiled log-likelihood within 2 units of the best) with the dispersion of $\ln\tau_p$, $\ln\tau_s$ and of the reconstructed trajectories among them, the *share of $x_p$ variance* and the proportion of fits in which one process absorbed essentially all variability (share below 0.05 or above 0.95; *one-process collapse*), the proportion of fits inside the 95% prior intervals, and the fit to RR (RMSE and profiled log-likelihood); definitions are in the ["Identifiability and sensitivity analyses: details"](supplementary.qmd#sec-ident-details) section of the supplementary material. Because the priors alter the objective, specifications are compared on the profiled log-likelihood and RR error, and not on the posterior objective.
+
+*Curvature, recovery under known truth and sensitivity.* The numerical Hessian of the objective at the best fit of $M_0$ and $M_3$ was decomposed, and profile surfaces of the objective were computed over a $`r used("identifiability$surface_grid")` \times `r used("identifiability$surface_grid")`$ log-spaced grid of $(\tau_p, \tau_s)$ for a subset of recordings. Synthetic RR series with known drives were generated in four scenarios (true time scales inside or outside the prior ranges, and vagal- or sympathetic-dominant variance) and fitted with each specification. Using $M_3$ as the reference, each hyperparameter of the identification structure was varied one at a time and each prior component removed in turn, recording the change in $\tau_p$ and $\tau_s$, in the reconstructed states and in RR error (supplementary material).
+
+## Data, preprocessing and event definition
+
+*Data files and cleaning.* Each recording is a table of ECG-derived RR intervals with their times and, when available, blood pressure, respiration (Fantasia) or the tilt-table angle (PRCP). RR intervals and covariates were cleaned with an adaptive running-median/median-absolute-deviation gate, a setting chosen on simulated series with injected artifacts because it altered few artifact-free beats (about 0.2%) while correcting most artifacts (about 99.7%); the analyses that use a covariate were restricted to recordings with at least 80% valid values in the analysis window. The latent model itself uses only the RR intervals. Preparation, cleaning and their checks are described in the ["Data preparation and its checks"](supplementary.qmd#sec-data-prep) section of the supplementary material.
+
+*Participants.* The PRCP database contains ten healthy adults (the database reports neither age nor sex). The Fantasia database contains 20 young (21–34 years) and 20 older (68–85 years) healthy adults, with equal numbers of men and women in each group as reported by the database; the sex of the participants is as recorded by the data source. The exercise cohort consists of community-dwelling adults aged 60 years or older from the Magallanes region of Chile, recruited for the study that produced these recordings [@castillo2025enhancing]; that study analyzed 272 participants, and 266 recordings were available here. [PLACEHOLDER: age and sex distribution of the exercise cohort (Table 1 of that study) and the reason for the 266 of 272.] Sex and gender were not used as covariates in any analysis: the only subject characteristic analyzed was group membership in Fantasia.
+
+*Events.* The PRCP protocol comprises slow and rapid head-up tilts and an active stand-up from supine, and every tilt and every stand-up is an event analyzed separately against its own baseline. Onsets and returns were taken from the tilt-angle signal where available (median-filtered angle more than 10° above its baseline for at least 5 s), from the protocol annotations otherwise, and, for recordings with neither and for the exercise recordings, from the heart-rate series itself: heart rate in 5-s bins was segmented into piecewise-constant levels by exact dynamic programming, with the number of segments chosen by the Bayesian information criterion subject to a minimum difference of 0.10 Hz (about 6 bpm) between adjacent levels, chosen from the false-detection rate in simulated resting recordings. Heart rate alone cannot tell a tilt from another maneuver that raises it, so such events are candidates and not confirmed tilts, and, where events are detected from the same RR series that is modeled, timing relative to them is not independent evidence about the states; the analyses therefore emphasize the relative timing and amplitude of the two components. The algorithms and their accuracy are given in the ["Event detection"](supplementary.qmd#sec-event-detection) section of the supplementary material.
+
+## Validation framework: orthostatic perturbation
+
+The first biological test of the reconstructed states uses tilt-table recordings from the Postural Response and Cardiovascular Predictors (PRCP) dataset [@heldt2003circulatory]. The aim is to assess whether the inferred components change in the expected direction during a perturbation, not to establish that either component is parasympathetic or sympathetic. Expected responses, based on the physiology of orthostatic stress, are a reduction of the vagal drive soon after the perturbation onset and a slower, more sustained increase of the sympathetic drive. Each maneuver was analyzed against its own baseline (at most 180 s and at least 60 s, beginning 120 s after the previous maneuver returned), followed by the maneuver itself and a 120-s recovery window. We computed (i) the difference in the mean of each state between phases, standardized by the baseline SD of that state; (ii) whether each difference had the expected sign; and (iii) a step-response fit of each state, $x(t) = x_0 + D\,[1 - e^{-(t-t_0)/\tau}]$ for $t \ge t_0$, yielding the response latency, the response time constant and the relative onset lag $t_{0,s} - t_{0,p}$ (fits at the search bounds are flagged and reported). Every between-recording summary used one value per recording, the median over its tilts, so that a recording with more tilts did not weigh more; the share of individual tilts with the expected pattern is reported as a measure of within-recording consistency. Reconstructions are displayed as time series with 95% intervals, as averages of tilts aligned on the onset (each relative to its own baseline) and as trajectories in the $(x_p, x_s)$ plane in units of the baseline SDs. Secondary analyses (a comparison of temporal resolution with a CWT moving spectrum, the arterial-pressure response and its lagged correlation with the states, the dose–response over tilt angle, and the responses by kind of maneuver) are described and reported in the ["Secondary analyses of the perturbation"](supplementary.qmd#sec-analysis-details) section of the supplementary material.
+
+## Generalization: aging
+
+To examine whether the representation differs between young and older adults, we analyzed resting recordings from the Fantasia database [@iyengar1996age]. The only subject characteristic used was membership of the young or older group (taken from the record names); no further covariates (for example, continuous age or sex) were available, and none are analyzed. A fixed analysis window (`r window_text(config_used)`) was used for all recordings. The question addressed is which dimensions of the model-based description differ between groups, and not whether any single parameter is associated with age. The dimensions considered are the intrinsic rate $\nu_0$, the time constants $\tau_p$ and $\tau_s$, the log-ratio $\ln(\kappa_p/\kappa_s)$, the relative vagal variance $\lambda_P$, the global scale $\hat\sigma^2_{sys}$, the equivalent timing jitter, the SD of each reconstructed state and their ratio, and the share of $x_p$ variance. Group differences (older minus young) are summarized by the Hodges–Lehmann shift, the Wilcoxon rank-sum $p$-value and Cliff's $\delta$ with a percentile bootstrap interval, with Benjamini–Hochberg control within each family of variables (latent and conventional HRV). Because the kinetic estimates are shaped by informative priors, group differences in $\tau$ are interpreted relative to those priors. Stability was examined by refitting two non-overlapping windows of each recording and by the intraclass correlation coefficient (ICC(3,1)) of the log-transformed values. With the group sizes available, all tests are exploratory. The respiratory and blood-pressure analyses of the same recordings are described and reported in the ["Respiration and blood pressure in the Fantasia recordings"](supplementary.qmd#sec-fantasia-physiology) section of the supplementary material.
+
+## Exercise and recovery
+
+The functional demonstration uses a two-minute step test with a rest–exercise–rest protocol in older adults [@castillo2025enhancing]. Each recording is fitted individually, with time-invariant kinetic parameters, and the non-stationary exercise response is represented by the time-varying filtered states. The rest level of each state is its mean (and SD) from 20 s after the start to 5 s before the detected onset; the exercise response is the difference between the mean of the state over the last 15 s of exercise and the rest level (also expressed in rest SDs), together with the peak excursion; and the geometry of the $(x_p, x_s)$ path, in units of the rest SDs, is summarized by its length, the area it encloses and the maximum distance from the rest point. These summaries represent adaptation as a trajectory and not as a collection of isolated HRV measures. No clinical or functional outcome measures and no subject characteristics were available for this cohort, and therefore no analyses of association with such variables are performed.
+
+*Recovery time.* Because no single definition of recovery is canonical, four candidates (sustained return of the excursion to within 1 rest SD, first return, 90% recovery, and an exponential time constant) and three rules for the end of exercise were compared on simulated rest–exercise–recovery recordings with known recovery constants and end times, and the best-scoring combination was used; recordings that did not meet the criterion within the observation window were treated as right-censored (Kaplan–Meier medians are reported). The benchmark depends on the simulated profiles and is therefore a methodological check of the definitions, and not evidence about the real recordings (["Recovery-time benchmark"](supplementary.qmd#sec-recovery-benchmark) section of the supplementary material).
+
+## Conventional HRV comparators
+
+Conventional HRV measures (SDNN, RMSSD, mean heart rate, and LF and HF power from a tapered periodogram of the resampled tachogram, the latter only for windows of at least 120 s) are used as comparators and not as competitors. The question is whether the latent representation provides information that is not directly encoded by these descriptors, examined in three descriptive ways: rank correlations between latent summaries and HRV metrics within each dataset; the leave-one-out $R^2$ with which HRV metrics predict each latent summary, where low values indicate that the summary is not linearly recoverable from them; and, for Fantasia, the leave-one-out discrimination (AUC) of young versus older adults using HRV metrics, latent summaries or both. In the perturbation and exercise recordings, phase-specific HRV metrics were related to the corresponding latent responses.
+
+## Statistical reporting
+
+Quantities that vary across recordings are summarized as the median and the 2.5th–97.5th percentile range across recordings. This range describes between-recording dispersion; it is not a confidence interval for the median. Fixed random seeds are used throughout, and the analysis code, configuration and session information are provided with the supplementary material.
+
+# Results
+
+## RR alone does not uniquely determine the latent decomposition {#sec-rr-alone}
+
+We first asked whether the RR series alone is sufficient to identify the latent vagal and sympathetic drives. To address this, the model was fitted without physiological information ($M_0$) from dispersed starting values, and the resulting parameter estimates, likelihood values and reconstructed trajectories were compared across starts, in a subset of `r txt(length(unique(identifiability_metrics$SubjectID)))` recordings drawn from the three datasets. Evidence for under-determination would consist of solutions with comparable fit to RR but different latent decompositions, including solutions in which one process absorbs essentially all variability.
+
+`r narrate_identifiability(ident)` The solutions reached from dispersed starting points are shown in @fig-identifiability.
+
+![Non-identifiability under RR alone. (A) Share of $x_p$ variance at the best fit of each recording, under $M_0$ (RR only) and $M_3$ (with physiological information); values at 0 or 1 mean that one process absorbs essentially all variability (the share of recordings is for the best fit only; the text reports the share of all fits). The single solution under $M_3$ is conditional on the spectral anchor and the priors. (B) Profile of the objective over $(\tau_s, \tau_p)$ for one recording, with the end points of its starts and the prior interval (dashed box); white areas inside the plotted range are grid points without a finite value. (C) Reconstructed vagal-like state $x_p$ of the near-equivalent starts of the same recording.](figures/fig5_identifiability.png){#fig-identifiability width=100%}
+
+We next asked whether independent physiological information reduces this ambiguity.
+
+## Physiological information reduces solution ambiguity at a cost in RR error
+
+The question is whether the constraints restrict the admissible solutions without imposing an arbitrary trajectory. This is assessed by comparing $M_0$–$M_3$ for dispersion of solutions, stability of the reconstructed trajectories, location of parameters within physiological ranges, and the change in RR fit (@tbl-ident-metrics). Improved likelihood is not used as the criterion, since a well-chosen constraint can reduce likelihood while improving interpretability.
+
+```{r}
+#| label: tbl-ident-metrics
+#| tbl-cap: "Ambiguity metrics of the multi-start fits by specification (median [2.5th, 97.5th percentile] across recordings; for the two proportions of fits, one-process collapse and fits within the prior intervals, the mean across recordings [2.5th, 97.5th percentile of the per-recording values]). Large upper percentiles of the dispersion of ln $\\tau$ come from recordings in which near-equivalent fits end at vanishingly small or very large time constants, a symptom of the likelihood ridge; they indicate that the fits are not pinned down, not their magnitude."
+#| echo: false
+if (!is.null(identifiability_metrics)) {
+  cols <- c(`Distinct solutions` = "n_solutions", 
+            `Near-equivalent fits` = "n_equiv", 
+            `SD of ln $\\tau_p$ (near-equiv.)` = "sd_ln_tau_p_equiv",
+            `SD of ln $\\tau_s$ (near-equiv.)` = "sd_ln_tau_s_equiv", 
+            `Range of $x_p$ variance share` = "share_p_range_equiv", 
+            `One-process collapse` = "collapse_frac",
+            `Within prior intervals` = "frac_in_phys_range", 
+            `Best RMSE (ms)` = "best_rmse_ms")
+  
+  proportion_cols <- c("collapse_frac", "frac_in_phys_range")
+  out <- lapply(
+      X = c("M0", "M1", "M2", "M3"), 
+      FUN = function(sp) {
+        out <- vapply(
+          X = cols, 
+          FUN = function(cn) {
+            x <- identifiability_metrics[spec == sp][[cn]]
+            if (cn %in% proportion_cols) {      # a proportion of fits: the mean over recordings (as in the text), not a median that is 0 or 1
+              q <- quantile(x, c(0.025, 0.975), na.rm = TRUE, names = FALSE)
+              sprintf("%.0f%% [%.0f%%, %.0f%%]", 100 * mean(x, na.rm = TRUE), 100 * q[1], 100 * q[2])
+            } else median_range_text(x, 2)
+          }, 
+          FUN.VALUE = ""
+        )
+        out <- list(out)
+        setNames(out, sp)
+      })
+  
+  out <- do.call(cbind, lapply(out, as.data.table))      # one column per specification (works in any data.table version)
+  
+  tb <- cbind(Metric = names(cols), out)
+  setnames(tb, c("M0", "M1", "M2", "M3"), spec_tex(c("M0", "M1", "M2", "M3")))      # $M_0$ ... $M_3$
+  
+  knitr::kable(tb)
+} else cat("[PENDING: results/identifiability.rds]")
+```
+
+
+`r narrate_constraints(ident, sensitivity, sim_recovery)`
+
+### Fit and innovation diagnostics of the engine specification
+
+For $M_3$, optimization converged for `r n_conv` of `r n_total` recordings (`r pct_conv`%), and the following summaries refer to the converged fits (`r ds_counts`). The filtered reconstruction of RR had a mean absolute percentage error (MAPE) of `r mape` and an RMSE of `r rmse` (median [2.5th, 97.5th percentile] across recordings). Because the implied RR at each beat uses states updated with that beat, these values describe in-sample filtered fit and not predictive accuracy.
+
+The standardized innovations were evaluated with the time-rescaling principle. The KS distance had a median of $D$ = `r ks_dist`, to be compared with a mean recording-specific critical value of `r mean_crit_d`; $D$ was below its critical value in `r pct_below_d` of recordings. Because the parameters are estimated from the same data, the critical value is approximate. Under a correctly specified simulated model, $D$ exceeded the critical value in `r txt(if (!is.null(checks)) pct(mean(checks$calibration$KS_Stat > checks$calibration$crit)))` of `r txt(nrow(checks$calibration))` simulated recordings (supplementary material). The cohort-averaged PACF of the innovations is shown in @fig-statistical-validation, and the mean number of lags outside the approximate white-noise bounds was `r pacf_viol`. Taken together, these diagnostics indicate that the assumptions of serially independent, Gaussian innovations are met `r if (frac_below_d < 0.5) "only partly" else "approximately"` in the recordings: `r pct_exceed_d` of the recordings exceeded the critical value (compare the well-specified simulations above), and the innovation PACF departs from white noise (`r pacf_viol` lags outside the bounds on average). Residual structure of this kind plausibly reflects components that the model does not represent, for example respiratory and baroreflex oscillations, and the reconstructed states should be read as conditional on this misspecification.
+
+![Fit and innovation diagnostics of the engine specification. (A) Distribution of filtered (in-sample) tracking error across recordings. (B) Cohort-averaged partial autocorrelation function (PACF) of the standardized innovations, with approximate white-noise bounds. (C) Kolmogorov–Smirnov distances ($D$) from the time-rescaling analysis across recordings, relative to recording-specific critical values. (D) Estimated time constants of the two drives ($\tau = 1/\kappa$) against the 95% intervals of their priors (grey).](figures/fig1_statistical_validation.png){#fig-statistical-validation width=100%}
+
+### Estimated kinetics relative to the priors
+
+The estimated clearance rates were `r kp_mean` for the vagal drive, corresponding to an e-folding time of `r taup_mean`, and `r ks_mean` for the sympathetic drive, corresponding to `r taus_mean` (@fig-statistical-validation, panel D). These estimates should be interpreted as MAP estimates under informative physiological priors and an enforced ordering $\kappa_p > \kappa_s$. The separation of the two time scales is therefore a property of the identification structure and the data jointly, and does not by itself constitute independent evidence that the two drives have been segregated "blindly". The extent to which the data move the estimates away from the prior centers is quantified by the contraction and prior-contrast values reported above.
+
+Having examined whether physiological information reduces ambiguity, we next asked whether the resulting states exhibit expected responses to an independently characterized perturbation.
+
+## Latent states during orthostatic perturbation
+
+For the PRCP recordings, the tilts were taken from the tilt-angle signal where available (`r txt(prcp$summary$n_angle)` of `r txt(prcp$summary$n)` recordings) and from the protocol annotations otherwise. Each recording contained several maneuvers (`r txt(prcp$summary$n_events)` tilts and `r txt(prcp$summary$n_stand)` stand-ups analyzed in total). The filtered states of one recording are shown in @fig-prcp (panel A) together with heart rate, arterial pressure and tilt angle, and the average response to a tilt in panel B; whether the components follow the expected pattern across recordings is summarized below, as a test of physiological coherence and should not be treated as proof that they correspond to the activity of the respective autonomic branches.
+
+![Latent states during repeated orthostatic perturbation. (A) One recording (`r example_caption(figure_info, "fig7_prcp")`): filtered drives (blue, vagal-like $x_p$; red, sympathetic-like $x_s$) with 95% intervals conditional on the MAP parameters, heart rate, mean arterial pressure and tilt angle; each tilt is shaded and numbered, and each stand-up (green) is labeled S. (B) All tilts aligned on their onset, each relative to its own baseline (states in baseline SDs; heart rate and MAP as changes); the line is the median over recordings, the band the quartiles and the grey lines the individual recordings. (C) Median path of the two states in the $(x_p, x_s)$ plane in baseline SDs. (D) Standardized change of the two states between baseline and tilt (large points: recordings; small points: individual tilts). (E) Onset of the response of each state, and of MAP when available, relative to the tilt onset (open symbols: at a search bound). (F) Step-response time constants. (G) Peak lagged correlation between each state and MAP after detrending, with its lag. When recordings with several tilt-angle levels are available, a further panel shows the mean states, heart rate and MAP by angle. The accuracy of the heart-rate-based events is shown in Supplementary Figure S5.](figures/fig7_prcp.png){#fig-prcp width=80%}
+
+`r narrate_prcp(prcp)`
+
+The reconstructed dynamics of one recording, the average response and the group-level summaries are shown in @fig-prcp. Responses by kind of maneuver (slow tilt, rapid tilt, stand-up), the arterial-pressure response and its lagged correlation with the states, the dose–response over tilt angle and the comparison with a CWT moving spectrum are reported in the supplementary material (sections ["Secondary analyses of the perturbation"](supplementary.qmd#sec-analysis-details) and ["Responses by type of maneuver"](supplementary.qmd#sec-prcp-kinds)).
+
+We then asked whether the representation is stable across individuals and whether it differs between young and older adults.
+
+## The latent representation across healthy aging
+
+The aging analysis addresses which dimensions of the model-based description differ between young and older adults in the Fantasia database, and not simply whether a given parameter differs. Only group membership was available as a subject characteristic: the analysis comprised `r txt(sum(fantasia$table$Group == "young"))` young and `r txt(sum(fantasia$table$Group == "older"))` older adults.
+
+```{r}
+#| label: tbl-fantasia
+#| tbl-colwidths: [20, 11, 12, 12, 11, 24, 10]
+#| tbl-cap: "Group contrasts in the Fantasia database (older minus young): medians, Hodges–Lehmann shift, Cliff's delta with bootstrap 95% interval, and Benjamini–Hochberg adjusted p-values within family."
+#| echo: false
+if (!is.null(fantasia)) {
+  ct <- fantasia$contrasts[!is.na(median1)]
+  knitr::kable(data.frame(Variable = sym_tex(ct$variable), Family = ct$family, `Median (young)` = fmt_fixed(ct$median1), `Median (older)` = fmt_fixed(ct$median2),
+                          `HL shift` = fmt_fixed(ct$hl_shift), `Cliff's $\\delta$ [95% CI]` = minus(sprintf("%.2f [%.2f, %.2f]", ct$cliff_delta, ct$cliff_lo, ct$cliff_hi)),
+                          `$p$ (BH)` = fmt_p(ct$p_BH), check.names = FALSE), align = "llrrrrr")
+} else cat("[PENDING: results/fantasia.rds]")
+```
+
+`r narrate_fantasia(fantasia, hrv)` Group contrasts are listed in @tbl-fantasia and shown in @fig-fantasia; respiration and blood-pressure measures are in the supplementary material.
+
+![Latent representation in young and older adults. (A) Distributions of latent summaries by group. (B) Effect sizes (Cliff's $\delta$, older versus young) for latent and conventional HRV variables. (C) Test-retest agreement (ICC(3,1) of log values) between two non-overlapping windows.](figures/fig8_fantasia.png){#fig-fantasia width=100%}
+
+Finally, we asked whether the reconstructed trajectories characterize adaptation and recovery during exercise.
+
+## Latent dynamics during exercise and recovery
+
+In the two-minute step-test recordings, the reconstruction tracked the changes in RR across rest, exercise and recovery (@fig-exercise, panel A). The rest, exercise and recovery phases were identified from heart rate. The recovery definition (`r txt(words_for(as.character(exercise$summary$recovery_definition), RECOVERY_DEFINITION_TEXT))`) and the end-of-exercise rule (`r txt(words_for(as.character(exercise$summary$end_method), END_RULE_TEXT))`) were those selected by the simulation benchmark (supplementary figure S3).
+
+`r narrate_exercise(exercise, hrv)` The corresponding example recording is shown in @fig-exercise.
+
+![Adaptation and recovery in older adults. (A) One recording (`r example_caption(figure_info, "fig9_exercise")`): filtered states and heart rate, with the detected exercise shaded. (B) All recordings aligned on the end of exercise, each relative to its rest level (median, bands of 25–75% and 10–90% of recordings, and the recording of A). (C) Recovery times of each state (open symbols: right-censored at the end of the recording; bars: Kaplan–Meier medians). (D) Filtered states in the $(x_p, x_s)$ plane in rest-SD units, one panel per phase with its own scale: density of the points (hexagons), ellipses holding 50% (solid) and 90% (dashed) of them, and the median path through the phase (arrow; open circle: start).](figures/fig9_exercise.png){#fig-exercise width=100%}
+
+The occupation of the $(x_p, x_s)$ plane in each phase is summarized as a density in Supplementary Figure S6; this map is descriptive and is not a potential function estimated from the model.
+
+# Discussion
+
+## Principal observations
+
+We examined whether a physiology-informed latent state-space model can reconstruct model-conditional autonomic dynamics from RR intervals when the latent decomposition is not identified by the observations alone. The premise of the study is that a close fit to RR does not by itself guarantee a physiologically meaningful decomposition, so that independent physiological information is better treated as part of the identification structure than as an auxiliary refinement. `r conclusion_identifiability(ident)` In the datasets analyzed, the innovation diagnostics `r diagnostics_clause(frac_below_d, numbers = FALSE)`, so that the reconstructions are conditional on a noise model that holds only approximately; with this caveat, `r findings_summary(prcp, fantasia, exercise, inline = TRUE)` These findings concern the behavior of a model-based representation under stated assumptions and should not be taken as direct evidence about neural activity. The latent states have not been validated against an external measure of autonomic activity; the evidence is of internal consistency and of agreement with expected qualitative responses.
+
+## Physiological meaning of the latent trajectories
+
+The latent trajectories are physiologically constrained reconstructions. They describe the drives, endowed with the kinetic and spectral properties assumed in the identification structure, that would be required for the model to account for the observed interval timing. This is the sense in which the components are called vagal-like and sympathetic-like: their identity rests on the imposed kinetic ordering and spectral allocation and not on independent measurement. `r prcp_discussion_sentence(prcp)` Representing adaptation as a trajectory in the $(x_p, x_s)$ plane, with summaries such as path length or enclosed area, offers a compact description of response and recovery. The quadratic energy $U$ used for display is computed from the estimated stationary covariance and is a descriptive device. Interpreting trajectory loops in terms of dissipation, entropy production or allostatic load would require independent validation and is not supported by the present analyses.
+
+## Relationship with conventional HRV
+
+Conventional HRV metrics summarize the variability of the RR series and remain robust and widely understood descriptors of the output of the system. SPARK addresses a complementary question: rather than asking how variable RR is, it asks what latent dynamical state could account for how RR changes, and how that state responds, adapts and recovers. The two approaches are therefore descriptive and generative, respectively, and neither is intended to replace the other. Window-based spectral estimates trade temporal against frequency resolution under non-stationary conditions [@saul2021heart; @kim2021ultra], whereas the filter updates beat by beat. A comparison with a CWT moving spectrum in the tilt recordings is given in the supplementary material (section ["Secondary analyses of the perturbation"](supplementary.qmd#sec-analysis-details)); the temporal behavior of the filter depends on its own assumptions, including independent drives and time-invariant kinetics within a recording, and does not establish general superiority. `r hrv_information_sentence(fantasia, hrv)`
+
+## Identification and physiological priors
+
+In an underdetermined inverse problem, physiological knowledge is not merely an auxiliary source of prior information; it forms part of the identification structure of the model. In SPARK this structure has components with distinct roles (@tbl-identification). Positivity and the ordering $\kappa_p > \kappa_s$ are structural; the time-scale and separation priors restrict where kinetic solutions can lie; the spectral anchor allocates variance between the two drives; and the jitter prior limits the extent to which the noise term can absorb autonomic variability.
+
+Two consequences follow from this design. First, the kinetic estimates are posterior modes under informative priors that are fixed across recordings. They are bounded by the assumed ranges, and differences between groups or conditions in $\kappa$ should therefore be interpreted together with the contrast between prior and posterior. The separation of fast and slow time scales is built into the identification structure and is not, by itself, an empirical finding. Second, the spectral anchor assigns branch energy by frequency and is computed from the same recording. Conditions in which the two branches overlap in frequency, such as strong orthostatic stress or exercise, may violate the assumed allocation and lead to misattribution between the drives [@liu2025heart; @menuet2025redefining]. The pharmacological evidence on which the spectral weights are based was drawn from the literature and was not generated here. These assumptions are explicit, and their influence is evaluated through the identifiability and sensitivity analyses. `r sensitivity_sentence(sensitivity)`
+
+## Phase-domain formulation and relation to existing approaches
+
+Point-process models of heartbeat intervals based on generalized linear structures are largely phenomenological with respect to the sinoatrial node [@barbieri2005point; @chen2012unified], whereas state-space formulations of the integral pulse frequency modulation framework generally solve the nonlinear first-passage observation model in the time domain and rely on extended or unscented filtering [@candia2021integral; @ding2024high; @amor2018constrained]. By conditioning on the observed interval, SPARK obtains a Gaussian measurement equation that is linear in the integrated drives, together with exact propagation of the Ornstein–Uhlenbeck dynamics across irregular intervals, which avoids discretization error in the transitions. The price is the terminal-threshold approximation: the neglected boundary-reflection term is bounded in proportion to the ratio of diffusion to the square root of the drift (see the supplementary material), which is small in the high-drift, low-noise regime but is not zero and should be examined in recordings with large threshold noise; `r epsilon_sentence(checks)`.
+
+Under the strict first-passage formulation, the variance of the interval scales with the inverse cube of the drift, so that lower drift (higher vagal influence) is associated with greater interval variance, in qualitative agreement with the dependence of respiratory sinus arrhythmia on vagal tone (see the ["Interval-variance scaling"](supplementary.qmd#sec-heteroskedasticity) section of the supplementary material). Because SPARK conditions on the observed interval and uses a Gaussian measurement equation whose variance does not depend on the level of the vagal drive, this dependence is not represented by the filter, and the stationary variances of the two drives are treated as constant within a recording.
+
+## Relation to nonlinear stochastic dynamics
+
+Seen as a dynamical system, SPARK couples a fast and a slow mean-reverting stochastic process to a threshold-crossing phase oscillator that is reset at every event, and the data are the crossing times. Three aspects connect it to general questions of nonlinear stochastic dynamics. First, the observation is a first-passage problem: conditioning on the observed interval replaces it by a terminal-threshold condition whose error is bounded and small in the fitted regime (see *Phase-domain formulation*), so that an intrinsically nonlinear observation becomes tractable by exact linear-Gaussian filtering while the hybrid continuous–discrete reset of the integral states is preserved. Second, identifiability is here a question about time-scale separation: the fitted rates of the two drives differ by a median factor of `r sprintf("%.0f", median(df$Kappa_P / df$Kappa_S))` in these recordings, and when the likelihood is left unconstrained it shows ridges along which solutions with very different time scales and variance partitions fit the intervals almost equally well (@sec-rr-alone); an external anchor on how variance is distributed across frequency is what removes this degeneracy, and it does so by assumption and not by the data. Third, because the filter keeps the continuous-time trajectories of both drives, the response of a perturbed system relaxing towards its baseline can be described geometrically in the $(x_p, x_s)$ plane (path length, enclosed area, occupied basins); we present these as descriptive summaries of the reconstructed trajectories, not as a fitted potential or an estimate of dissipation. Whether richer dynamics, such as state-dependent noise, time-varying kinetics or coupling between the drives, could be detected from RR intervals alone is an open question that the same identifiability analysis would have to answer first.
+
+## Limitations
+
+Several limitations delimit the claims. The latent states are model-based reconstructions and are not direct measurements of autonomic neural activity; they have not been compared with microneurographic recordings or tested under pharmacological blockade, and the atropine-informed spectral evidence is external to the present data. Identification remains incomplete even with physiological information. The innovation diagnostics `r diagnostics_clause(frac_below_d)`, so the reported intervals are conditional on a noise model that holds only approximately.`r tau_p_limit` The recovery times and the time constants of the two drives are shaped by their priors and describe the fitted kinetics; in recordings whose duration is comparable to or shorter than the sympathetic time scale, $\tau_s$ is likely to be informed mainly by its prior. The hyperparameters are fixed across recordings, the spectral anchor equates the ratio of partitioned spectral energies with the ratio of latent variances (an approximation), and kinetics and stationary variances are assumed constant within a recording, which may be restrictive during strongly non-stationary exercise. The state intervals are conditional on the MAP parameters, the states are filtered and not smoothed, and the optimizer used for the reported fits starts from a single point, so a local optimum cannot be excluded for an individual recording; the simulation studies rely on data generated by the model itself and do not test misspecification beyond the profiles included. Finally, the apportioning of a perturbation-induced excursion between the two drives is not determined by the data alone: it depends on the spectral anchor, and in the sensitivity analyses the reconstructed vagal share of an excursion changed substantially with the logistic crossover, the vagal floor fraction and the lower edge of the integration band. Statements about the relative contribution of the two drives are therefore conditional on those settings.
+
+The data impose additional limits. Sex and other participant characteristics were not analyzed as covariates, so sex-specific differences are not addressed. `r kinds_limit_sentence(prcp)` The tilt-table dataset comprises a limited number of recordings (`r prcp_n_text(prcp)`), each with several tilts that are not independent of one another; events for the recordings without a tilt angle and for the exercise cohort were detected from the same RR series, so timing relative to them is not independent evidence about the states. The Fantasia database includes only group membership as a subject characteristic, so kinetics as functions of continuous age, sex or other covariates could not be examined. The exercise cohort consists of older adults and a single protocol, with no subject-level characteristics or clinical outcomes, so the relevance of the latent trajectories to such outcomes was not evaluated, and the behavior of the framework in populations with overt cardiac autonomic pathology remains untested [@kashou2017physiology; @braffett2025cardiovascular; @talishinsky2025autonomic]. The single-stream formulation does not include respiratory or blood-pressure inputs: respiratory sinus arrhythmia is captured only as an oscillatory component of the vagal state, and baroreflex feedback is implicit [@seidman2024long; @skytioti2022respiratory; @liu2025heart], so that central autonomic commands cannot be distinguished from peripheral mechanical modulation.
+
+## Future directions
+
+The most direct extensions address these limitations. Concurrent respiratory and arterial-pressure signals could be incorporated through explicit coupling terms [@tsai2025photoplethysmography; @parikh2025evaluation; @witteveen2025toward], which may reduce reliance on the spectral anchor; validation against microneurography and graded pharmacological blockade [@maki2024integrative; @maciel2025avaliaccao] would test the interpretation of the latent components directly; and hierarchical formulations could learn the hyperparameters across recordings instead of fixing them. Because the continuous-time trajectories are preserved, quantities such as the geometry of the phase-plane path or the behavior of the kinetic parameters near critical slowing down could be explored [@de2024ergodicity; @tirabassi2024linear], each requiring dedicated validation before a physiological interpretation. Datasets with clinical and functional outcomes and subject covariates would be required to determine whether the latent trajectories carry information that is relevant in those settings.
+
+# Conclusion
+
+This study approached the inference of latent cardiac autonomic dynamics from RR intervals as an inverse problem whose solution is not guaranteed to be unique from the observations alone. SPARK combines phase-domain conditioning of integrate-and-fire pacing, which yields a conditionally linear-Gaussian model with exact continuous-time propagation, with an explicit physiological identification structure. `r conclusion_identifiability(ident)` `r findings_summary(prcp, fantasia, exercise)` Within the limits set by its assumptions, the framework offers a model-based reconstruction of latent autonomic trajectories from RR intervals; how the stressor-induced change is divided between the two drives remains conditional on the spectral anchor, and external validation is still needed.
+
+# CRediT authorship contribution statement {.unnumbered}
+
+[PLACEHOLDER: to be completed and confirmed by every author using the CRediT taxonomy (Conceptualization; Methodology; Software; Validation; Formal analysis; Investigation; Resources; Data curation; Writing – original draft; Writing – review & editing; Visualization; Supervision; Project administration; Funding acquisition).]
+
+**Matías Castillo-Aguilar:** [PLACEHOLDER: roles]. **Noah Beelders:** [PLACEHOLDER: roles]. **Cristian Núñez-Espinosa:** [PLACEHOLDER: roles].
+
+# Declaration of competing interest {.unnumbered}
+
+[PLACEHOLDER: to be confirmed by all authors. Standard wording if applicable: "The authors declare that they have no known competing financial interests or personal relationships that could have appeared to influence the work reported in this paper." Otherwise, list the interests.]
+
+# Funding {.unnumbered}
+
+The exercise cohort was collected under ANID FONDECYT Iniciación No. 11220116 [@castillo2025enhancing]. [PLACEHOLDER: funding of the present work, if different, or: "This research did not receive any specific grant from funding agencies in the public, commercial, or not-for-profit sectors."]
+
+# Ethics statement {.unnumbered}
+
+The exercise cohort is a secondary analysis of recordings from a previously published study [@castillo2025enhancing], which was approved by the Ethics Committee of the University of Chile (ACTA No. 029 − 18/05/2022) and the Ethics Committee of the University of Magallanes (No. 008/SH/2022). No new data were collected for the present work, and only the RR-interval series, identified by a recording number, were used, so no additional ethical approval was required. [PLACEHOLDER: confirm the informed-consent statement of that study, which its article does not give.] The PRCP and Fantasia recordings are publicly available, de-identified datasets from PhysioNet, analyzed secondarily under their open license (Open Data Commons Attribution 1.0).
+
+# Code availability {.unnumbered}
+
+The model is implemented in R (engine deposited with this article as model_code.R). An equivalent implementation runs entirely in the browser, without uploading data, at <https://matcasti.github.io/SPARK-app/>. In the reference series tested, its states, likelihood and parameter estimates agree with the R engine to about 10^-9^. The application is intended for research use and exploration, not for clinical decisions.
+
+# Data availability {.unnumbered}
+
+The PRCP recordings (Physiologic Response to Changes in Posture; <https://doi.org/10.13026/C2PC7R>) and the Fantasia database (<https://doi.org/10.13026/C2RG61>) are publicly available from PhysioNet under the Open Data Commons Attribution license; the repository downloads them with checksum verification (`make download`). The RR-interval series of the exercise cohort (266 recordings, without personal identifiers) are in the repository's `data-raw/tmst` folder. The analysis code and its configuration are at <https://github.com/matcasti/2026-06-BHA-SDE-model/>, and the figures, tables and numbers of this article are regenerated from them (`make data`, `make run`, `make render`). [PLACEHOLDER: DOI of the archived release of the repository (for example Zenodo) and its license.]
+
+# Acknowledgements {.unnumbered}
+
+We thank Diego Mabe-Castro and David Medina, co-authors of the study that produced the exercise cohort [@castillo2025enhancing]. [PLACEHOLDER: confirm this acknowledgement and add anyone else to thank, for example for language editing or proofreading.]
+
+# Declaration of generative AI and AI-assisted technologies in the writing process {.unnumbered}
+
+During the preparation of this work the authors used Claude (Anthropic) to assist with drafting and language editing of the text. After using this tool, the authors reviewed and edited the content as needed and take full responsibility for the content of the publication.
+
+# References {.unnumbered}
+
+::: {#refs}
+:::

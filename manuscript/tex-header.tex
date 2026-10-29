@@ -1,0 +1,12 @@
+% pdfLaTeX needs the Unicode minus sign (U+2212) declared; XeLaTeX / LuaLaTeX already handle it
+\usepackage{iftex}
+\ifPDFTeX
+  \DeclareUnicodeCharacter{2212}{\ifmmode-\else\textminus\fi}
+\fi
+% Nothing may run past the margins: URLs and DOIs break anywhere, lines may stretch a little, tables use a smaller font
+\emergencystretch=3em
+\AtBeginDocument{%
+  \def\UrlBreaks{\do\/\do\.\do\-\do\_\do\:\do\=\do\?\do\&\do\a\do\b\do\c\do\d\do\e\do\f\do\g\do\h\do\i\do\j\do\k\do\l\do\m\do\n\do\o\do\p\do\q\do\r\do\s\do\t\do\u\do\v\do\w\do\x\do\y\do\z\do\0\do\1\do\2\do\3\do\4\do\5\do\6\do\7\do\8\do\9}%
+  \let\oldlongtable\longtable
+  \let\endoldlongtable\endlongtable
+  \renewenvironment{longtable}{\footnotesize\setlength{\tabcolsep}{3pt}\oldlongtable}{\endoldlongtable}}

@@ -1,0 +1,77 @@
+project:
+  type: website
+  render:
+    - manuscript.qmd
+    - supplementary.qmd
+
+website:
+  navbar:
+    left:
+      - href: manuscript.qmd
+        text: Manuscript
+      - href: supplementary.qmd
+        text: Supplementary
+      - href: https://matcasti.github.io/SPARK-app/
+        text: Web-App
+    right:
+      - icon: github
+        href: https://github.com/matcasti/2026-06-BHA-SDE-model/
+
+format:
+  html:
+    title-block-style: manuscript
+    embed-resources: true
+    resources: [model_code.R]
+    code-links:
+      - text: Model (R script)
+        href: model_code.R
+        icon: file-code
+    theme:
+      light: Yeti
+      dark: Cyborg
+    toc: true
+  typst:
+    keep-typ: true
+    papersize: a4
+    margin:
+      x: 2.2cm
+      y: 2.4cm
+    fontsize: 10.5pt
+    section-numbering: 1.1.1
+    toc: false
+    template-partials:
+      - typst-template.typ
+      - typst-show.typ
+
+bibliography: citations.bib
+number-sections: true
+date: today
+author:
+  - name: "Matías Castillo-Aguilar"
+    corresponding: true
+    email: "[PLACEHOLDER: corresponding author e-mail]"
+    orcid: "0000-0001-7291-247X"
+    affiliations:
+      - ref: umag
+  - name: "Noah Beelders"
+    orcid: "0000-0001-5953-075X"
+    affiliations:
+      - ref: lmu
+  - name: "Cristian Núñez-Espinosa"
+    orcid: "0000-0002-9896-7062"
+    affiliations:
+      - ref: umag
+affiliations:
+  - id: umag
+    name: "Universidad de Magallanes"
+    department: "Escuela de Medicina"
+    address: "[PLACEHOLDER: street address]"
+    city: "Punta Arenas"
+    country: "Chile"
+  - id: lmu
+    name: "Ludwig-Maximilians-Universität München"
+    department: "Department of Mathematics"
+    address: "Theresienstraße 39"
+    postal-code: "80333"
+    city: "Munich"
+    country: "Germany"

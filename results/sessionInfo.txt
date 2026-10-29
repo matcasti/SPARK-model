@@ -1,0 +1,36 @@
+R version 4.6.1 (2026-06-24)
+Platform: aarch64-apple-darwin23
+Running under: macOS Sequoia 15.6.1
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRblas.0.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/Punta_Arenas
+tzcode source: internal
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+loaded via a namespace (and not attached):
+ [1] Matrix_1.7-6        gtable_0.3.6        jsonlite_2.0.0     
+ [4] dplyr_1.2.1         compiler_4.6.1      maps_3.4.3         
+ [7] tidyselect_1.2.1    Rcpp_1.1.2          xml2_1.6.0         
+[10] parallel_4.6.1      textshaping_1.0.5   systemfonts_1.3.2  
+[13] splines_4.6.1       scales_1.4.0        png_0.1-9          
+[16] reticulate_1.46.0   lattice_0.23-1      here_1.0.2         
+[19] ggplot2_4.0.3       R6_2.6.1            generics_0.1.4     
+[22] patchwork_1.3.2     MASS_7.3-66         iterators_1.0.14   
+[25] dotCall64_1.2       ggtext_0.2.0        tibble_3.3.1       
+[28] rprojroot_2.1.1     pillar_1.11.1       RColorBrewer_1.1-3 
+[31] rlang_1.3.0         S7_0.2.2            viridisLite_0.4.3  
+[34] cli_3.6.6           withr_3.0.3         magrittr_2.0.5     
+[37] foreach_1.5.2       grid_4.6.1          gridtext_0.1.6     
+[40] biwavelet_0.20.22   spam_2.11-4         lifecycle_1.0.5    
+[43] fields_17.3         vctrs_0.7.3         glue_1.8.1         
+[46] data.table_1.18.4   numDeriv_2016.8-1.1 farver_2.1.2       
+[49] ragg_1.5.2          codetools_0.2-20    survival_3.8-11    
+[52] tools_4.6.1         pkgconfig_2.0.3    

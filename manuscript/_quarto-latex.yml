@@ -1,0 +1,9 @@
+# LaTeX route, kept only to produce the .tex source that the journal may ask for (make submission)
+format:
+  pdf:
+    toc: false
+    pdf-engine: pdflatex
+    output-file: manuscript-latex
+    template-partials:
+      - title.tex
+    include-in-header: tex-header.tex

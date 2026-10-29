@@ -1,0 +1,568 @@
+---
+title: "Supplementary material"
+crossref:
+  fig-title: "Figure S"
+  tbl-title: "Table S"
+---
+
+```{r}
+#| include: false
+library(data.table)
+source("../R/report/symbols.R")                  # notation of figures and tables (LaTeX labels of the result variables)
+load_result <- function(n) { f <- file.path("../results", paste0(n, ".rds")); if (file.exists(f)) readRDS(f) else NULL }
+txt <- function(e) tryCatch({ x <- as.character(e); if (!length(x) || all(is.na(x)) || any(grepl("(^|[^A-Za-z])-?(Inf|NaN|NA)([^A-Za-z]|$)", x))) "[PENDING]" else x }, error = function(err) "[PENDING]")
+med_range_text <- function(x, d = 2, unit = "") { x <- x[is.finite(x)]; if (!length(x)) return("[PENDING]"); q <- quantile(x, c(0.5, 0.025, 0.975), names = FALSE); sprintf(paste0("%.", d, "f%s [%.", d, "f, %.", d, "f]"), q[1], unit, q[2], q[3]) }
+pct <- function(x, d = 0) if (length(x) && is.finite(x)) sprintf(paste0("%.", d, "f%%"), 100 * x) else "[PENDING]"
+prcp <- load_result("prcp"); prep_checks <- load_result("prep_checks"); checks <- load_result("supp_checks"); sim_recovery <- load_result("sim_recovery"); sensitivity <- load_result("sensitivity"); event_detection <- load_result("event_detection"); recovery_benchmark <- load_result("recovery_choice"); ident <- load_result("identifiability")
+fantasia <- load_result("fantasia"); hrv <- load_result("hrv"); config_used <- load_result("config_used"); figure_info <- load_result("figure_info")
+source("../R/report/manuscript_text.R")          # text generated from the results (as in the manuscript)
+```
+
+# Asymptotic convergence of the phase-domain mapping {#sec-phase-mapping}
+
+The phase-domain mapping evaluates the accumulated phase over a deterministic temporal window $\Delta t_k$ and thereby relaxes the path-survival condition of a strict first-passage time (FPT) formulation. We show here that the discrepancy between the terminal-threshold and first-passage formulations is explicitly bounded and vanishes as the threshold noise becomes small relative to the drift, which is the regime expected for sinoatrial pacing.
+
+Consider the closed-form cumulative distribution function (CDF) of the first-passage time $\tau$ of a one-dimensional drift–diffusion process with constant net drift $\nu > 0$, diffusion coefficient $\sigma$ and an absorbing boundary at $a = 1$:
+
+$$
+F_{\tau}(t) = \Phi\left( \frac{\nu t - 1}{\sigma \sqrt{t}} \right) + \exp\left( \frac{2\nu}{\sigma^2} \right) \Phi\left( \frac{-\nu t - 1}{\sigma \sqrt{t}} \right),
+$$
+
+where $\Phi(\cdot)$ is the standard normal CDF. By the reflection principle, the first term is the probability that the unconstrained process lies above the threshold at time $t$, which corresponds to the terminal-threshold observation equation used in the phase-domain inversion. The second term, which we denote $R(t)$, accounts for sample paths that crossed the boundary before $t$ and subsequently diffused back below it.
+
+The magnitude of $R(t)$ can be bounded explicitly. Let $x = (\nu t + 1)/(\sigma\sqrt{t}) > 0$ and use the Gaussian tail inequality $\Phi(-x) \le \varphi(x)/x$, where $\varphi$ is the standard normal density. Then
+
+$$
+R(t) \le \frac{1}{\sqrt{2\pi}}\,\frac{\sigma\sqrt{t}}{\nu t + 1}\,\exp\left( \frac{2\nu}{\sigma^2} - \frac{(\nu t + 1)^2}{2\sigma^2 t} \right) = \frac{1}{\sqrt{2\pi}}\,\frac{\sigma\sqrt{t}}{\nu t + 1}\,\exp\left( -\frac{(\nu t - 1)^2}{2\sigma^2 t} \right).
+$$
+
+Because the exponential factor does not exceed one and $\nu t + 1 \ge 2\sqrt{\nu t}$, it follows that, uniformly in $t > 0$,
+
+$$
+\sup_{t > 0}\left| F_\tau(t) - \Phi\left( \frac{\nu t - 1}{\sigma \sqrt{t}} \right) \right| \le \frac{\sigma}{2\sqrt{2\pi\,\nu}} = \frac{\varepsilon}{2\sqrt{2\pi}} \approx 0.2\,\varepsilon, \qquad \varepsilon = \frac{\sigma}{\sqrt{\nu}}.
+$$
+
+The multiplier $\exp(2\nu/\sigma^2)$ offsets the Gaussian tail decay of $\Phi(-x)$ near the mean interval $t \approx 1/\nu$, so the neglected term is small because $\varepsilon$ is small and not because it is exponentially negligible; it decays rapidly only away from $t \approx 1/\nu$. The bound therefore vanishes as $\varepsilon \to 0$, that is, as the drift becomes large relative to the diffusion.
+
+For a locally constant drift with unit threshold, the mean interval is $\Delta t \approx 1/\nu$ and the standard deviation of the first-passage time is $\sigma/\nu^{3/2} = \varepsilon\,\Delta t$. The parameter $\varepsilon$ is therefore approximately the relative timing jitter of the threshold crossing, $\varepsilon \approx s_{RR}/\Delta t$, where $s_{RR} = \sqrt{\hat\sigma^2_{sys}\lambda_R\,\Delta t}/\hat\nu_0$ is the equivalent RR timing jitter reported by the model. For jitter within the prior range of 0.5–20 ms and RR intervals near 0.8 s, $\varepsilon$ ranges from approximately $6\times 10^{-4}$ to $2.5\times 10^{-2}$, and the bound ranges from approximately $1\times 10^{-4}$ to $5\times 10^{-3}$ in CDF units. The terminal-threshold formulation is thus a close approximation of the first-passage distribution in this regime, but it remains a modeling assumption that should be verified when the estimated jitter is large.
+
+## Numerical verification
+
+The bound was verified numerically (step 11 of the analysis pipeline, @tbl-pipeline). Evaluating the neglected term $R(t)$ on a fine grid of $t$ for $\varepsilon$ between $5\times10^{-4}$ and $0.4$, the ratio of its supremum to the analytical bound was at most `r txt(if (!is.null(checks)) sprintf("%.3f", max(checks$bound$ratio)))` (a value of 1 or less confirms the bound, which is tight near $t \approx 1/\nu$). A Monte Carlo simulation of the drift–diffusion process (Euler steps of 2 ms, 4000 paths per setting) gave maximal differences between the empirical first-passage CDF and the closed form of `r txt(if (!is.null(checks)) paste(sprintf("%.3f", checks$bound_mc$sup_emp_vs_closed), collapse = " and "))` for $\varepsilon$ = 0.1 and 0.3 (Monte Carlo standard error at most `r txt(if (!is.null(checks)) sprintf("%.3f", max(checks$bound_mc$mc_se)))`); discretization of the simulated paths makes the empirical crossing time slightly later than the continuous-time one, so this comparison is a coarse check of the closed form and not of the bound itself.
+
+In the fitted recordings, the relative timing jitter $\varepsilon \approx s_{RR}/\Delta t$ was `r txt(if (!is.null(checks)) med_range_text(checks$fitted_regime$eps, 4))` (median [2.5th, 97.5th percentile] across recordings; maximum `r txt(if (!is.null(checks)) sprintf("%.4f", max(checks$fitted_regime$eps)))`), which corresponds to a bound on the CDF discrepancy of at most `r txt(if (!is.null(checks)) sprintf("%.4f", max(checks$fitted_regime$bound_cdf)))`. The engine reports the equivalent jitter in ms as `rr_jitter_ms`.
+
+# Estimation algorithm {#sec-estimation-algorithm}
+
+This section details the algorithm implemented in the accompanying R engine. The filter evaluates the augmented state $\tilde{X}(t) = [x_p(t), x_s(t), I_p(t), I_s(t)]^\top$ over the observed intervals $\Delta t_k$, $k = 1, \dots, N$. All variances in the recursion are expressed in units of the global scale $\sigma^2_{sys}$, which is restored after profiling. In these units the stationary variances are $V_s = 1$ and $V_p = \lambda_P\,g_k$, where $g_k = 1$ for the ungated model.
+
+## Continuous-time transitions and process covariance
+
+The transition matrix is $\Phi_k = \exp(A\,\Delta t_k)$ with entries derived in the [matrix exponential section](#sec-matrix-exponential) below. For each branch $b \in \{p, s\}$, the process covariance of $(x_b, I_b)$ over an interval of length $\Delta t_k$ has the block form $\begin{bmatrix} q^{b}_{xx} & q^{b}_{xI} \\ q^{b}_{xI} & q^{b}_{II} \end{bmatrix}$. Writing $x = \kappa_b\,\Delta t_k$ and using $\sigma_b^2 = 2\kappa_b V_b$, the entries are
+
+$$
+\begin{aligned}
+q^{b}_{xx} &= V_b\left(1 - e^{-2x}\right), \\
+q^{b}_{xI} &= \frac{V_b}{\kappa_b}\left(1 - e^{-x}\right)^2, \\
+q^{b}_{II} &= \frac{V_b}{\kappa_b^2}\left(2x - 3 + 4e^{-x} - e^{-2x}\right).
+\end{aligned}
+$$
+
+The covariance is block-diagonal across branches because the drives are independent. When $x < 10^{-3}$, the exponential differences suffer catastrophic cancellation, and truncated Taylor expansions in $\Delta t_k$ are used instead:
+
+$$
+\begin{aligned}
+q^{b}_{xx} &\approx 2\kappa_b V_b\left[\Delta t_k - \kappa_b \Delta t_k^2 + \tfrac{2}{3}\kappa_b^2 \Delta t_k^3\right], \\
+q^{b}_{xI} &\approx 2\kappa_b V_b\left[\tfrac{1}{2}\Delta t_k^2 - \tfrac{1}{2}\kappa_b \Delta t_k^3 + \tfrac{7}{24}\kappa_b^2 \Delta t_k^4\right], \\
+q^{b}_{II} &\approx 2\kappa_b V_b\left[\tfrac{1}{3}\Delta t_k^3 - \tfrac{1}{4}\kappa_b \Delta t_k^4 + \tfrac{7}{60}\kappa_b^2 \Delta t_k^5\right].
+\end{aligned}
+$$
+
+For the vagal branch, $V_p = \lambda_P$ (constant within a recording).
+
+## Dual-filter recursion, Joseph update and phase reset
+
+Two filters are run in parallel and share one covariance recursion and Kalman gain. The stochastic filter $\tilde{X}^{(0)}$ treats the observation as $y_k = 1$ (that is, $\nu_0 = 0$), and the deterministic filter $\tilde{X}^{(\nu)}$ treats it as $y_k = \Delta t_k$ (the unit-$\nu_0$ response). Both start from zero, with initial covariance $P_0 = \mathrm{diag}(\lambda_P,\ 1,\ 0,\ 0)$, which is the stationary covariance of the drives and zero for the phase integrals. At each beat:
+
+1. **Prediction.** $\tilde{X}_{k|k-1} = \Phi_k \tilde{X}_{k-1|k-1}$ for both filters, and $P_{k|k-1} = \Phi_k P_{k-1|k-1}\Phi_k^\top + Q_k$.
+2. **Innovation variance and gain.** With the threshold-noise variance $R_k = \lambda_R\,\mu_k\,\Delta t_k$, where $\mu_k$ is the artifact multiplier defined below, $S_k = H P_{k|k-1} H^\top + R_k$ (floored at $10^{-12}$) and $K_k = P_{k|k-1}H^\top / S_k$.
+3. **Innovations.** $v_k^{(0)} = 1 - H\tilde{X}^{(0)}_{k|k-1}$ and $v_k^{(\nu)} = \Delta t_k - H\tilde{X}^{(\nu)}_{k|k-1}$.
+4. **Update.** $\tilde{X}_{k|k} = \tilde{X}_{k|k-1} + K_k v_k$ for each filter, and the Joseph form
+$$
+P_{k|k} = (I - K_k H)\,P_{k|k-1}\,(I - K_k H)^\top + K_k R_k K_k^\top,
+$$
+followed by symmetrization, $P_{k|k} \leftarrow (P_{k|k} + P_{k|k}^\top)/2$.
+5. **Storage and phase reset.** The posterior states and covariance are stored and the integral components ($I_p$, $I_s$) of both state vectors and the corresponding rows and columns of $P_{k|k}$ are set to zero, whereas $x_p$, $x_s$ and their covariances are propagated unchanged to the next interval.
+
+The measurement-noise term $R_k$ contains only the threshold-level jitter. The uncertainty in the integrated drives is carried by $H P_{k|k-1} H^\top$ and enters $S_k$ but not the Joseph noise term. $R_k$ represents the timing jitter of the depolarization threshold and the timing error of the acquisition system. The Joseph form preserves symmetry and positive semidefiniteness of $P_{k|k}$ under finite-precision arithmetic.
+
+**Artifact multiplier.** Let $J_k = \max\left(|\Delta t_k - \Delta t_{k-1}|/\Delta t_{k-1},\ |\Delta t_{k+1} - \Delta t_k|/\Delta t_k\right)$ be the largest relative change between adjacent intervals at beat $k$ (one-sided at the ends of the series). The multiplier is $\mu_k = \min\{1 + (J_k/\theta_J)^{p_J},\ 10^{10}\}$ with $\theta_J = 0.25$ and $p_J = 10$, and the inflated jitter variance is capped at $10^{12}$. As $\mu_k$ increases, $K_k \to 0$ and the observation has a negligible effect on the states. The multiplier references both adjacent intervals and is therefore not strictly causal; it affects only the observation-noise weighting and not the dynamics of the latent drives. Beats with $\mu_k \ge 100$ are excluded from $\hat\sigma^2_{sys}$ and the likelihood.
+
+## GLS profiling and reconstruction of the states
+
+Because $\nu_0$ enters the observation linearly, the generalized least squares (GLS) estimate follows from the two innovation sequences,
+
+$$
+\hat{\nu}_0 = \frac{\sum_{k=1}^{N} v_k^{(0)} v_k^{(\nu)} / S_k}{\sum_{k=1}^{N} \left(v_k^{(\nu)}\right)^2 / S_k},
+$$
+
+where the artifact-inflated $S_k$ down-weights aberrant beats. With baseline-corrected innovations $v_k = v_k^{(0)} - \hat{\nu}_0 v_k^{(\nu)}$ and $\mathcal{K} = \{k : \mu_k < 100\}$ (all beats if fewer than two satisfy this), the concentrated estimate of the global scale and the profiled log-likelihood are
+
+$$
+\hat{\sigma}^2_{sys} = \frac{1}{n_{\mathrm{eff}}}\sum_{k \in \mathcal{K}}\frac{v_k^2}{S_k}, \qquad
+\mathcal{L}^* = -\frac{1}{2}\sum_{k\in\mathcal{K}}\ln S_k - \frac{n_{\mathrm{eff}}}{2}\ln\hat{\sigma}^2_{sys}, \qquad n_{\mathrm{eff}} = |\mathcal{K}|.
+$$
+
+If $\hat{\nu}_0$ is not finite and positive, the implied RR would be undefined, and the fit is assigned $\mathcal{L}^* = -\infty$.
+
+The reconstructed (forward-filtered) states are $\hat{X}_{k|k} = \tilde{X}^{(0)}_{k|k} - \hat{\nu}_0\,\tilde{X}^{(\nu)}_{k|k}$. The variances of the drives include the uncertainty in $\hat{\nu}_0$, whose variance is $\hat\sigma^2_{sys}/D$ with $D = \sum_k (v^{(\nu)}_k)^2/S_k$:
+
+$$
+\mathrm{Var}(\hat{x}_{b,k}) = \hat{\sigma}^2_{sys}\left[P^{(bb)}_{k|k} + \frac{\left(\tilde{X}^{(\nu)}_{b,k|k}\right)^2}{D}\right], \quad b \in \{p, s\}.
+$$
+
+The filtered RR at beat $k$ is $\widehat{RR}_k = (1 + \hat{I}_{p,k} - \hat{I}_{s,k})/\hat{\nu}_0$ with variance $\hat\sigma^2_{sys}\left(P^{(33)}_{k|k} + P^{(44)}_{k|k} - 2P^{(34)}_{k|k}\right)/\hat{\nu}_0^2$. Because these quantities use the update at beat $k$, they are in-sample filtered values. The stated 95% intervals are conditional on the MAP kinetic parameters.
+
+## Spectral anchoring {#sec-spectral-anchor}
+
+The relative vagal variance $\lambda_P = V_p/V_s$ is computed once per recording as follows.
+
+1. **Resampling.** The instantaneous heart rate (Hz), $1/\Delta t_k$, is interpolated onto a uniform 4 Hz grid with a monotone (Fritsch–Carlson) Hermite spline, which avoids overshoot between beats, and the mean is subtracted.
+2. **Global wavelet spectrum.** A Morlet continuous wavelet transform is computed [R package `biwavelet`]. Power at each scale is masked outside the cone of influence and averaged over time to give the global spectrum $G(f)$, and frequencies are sorted in ascending order.
+3. **Frequency weights.** A logistic transition $L(f) = \left[1 + \exp\{-s\,(f - f_c)\}\right]^{-1}$ with crossover $f_c = 0.10$ Hz defines the weights
+$$
+w_v(f) = \phi + (1 - \phi)\,L(f), \qquad w_s(f) = (1-\phi)\,\left(1 - L(f)\right),
+$$
+with $w_v + w_s = 1$, where $\phi = 0.25$ is the floor fraction of the vagal weight at low frequencies. The steepness $s = -\ln\{\epsilon/(1-\epsilon)\}/(f_u - f_c)$ is set so that $1 - L(f_u) = \epsilon = 0.05$ at the LF/HF boundary $f_u = 0.15$ Hz, which defines the "sympathetic leakage" into the high-frequency band.
+4. **Energy ratio.** Energies are integrated by the trapezoidal rule over the log-spaced scales on $0.04 \le f \le 0.40$ Hz,
+$$
+E_v = \int w_v(f)\,G(f)\,df, \qquad E_s = \int w_s(f)\,G(f)\,df, \qquad \lambda_P = E_v/E_s .
+$$
+
+The unweighted low- and high-frequency band powers (LF: 0.04–0.15 Hz; HF: 0.15–0.40 Hz) and the mean heart rate are also stored as diagnostics and are not used in the fit.
+
+The anchor rests on two assumptions that merit explicit statement. First, the spectral weights encode external evidence about the distribution of vagal and sympathetic modulation across frequency. Pharmacological blockade paradigms indicate that parasympathetic tone forms a persistent baseline contribution to resting LF power [@Akselrod1981; @Taylor1998]; because the size of this contribution varies across individuals and conditions, the floor fraction is set to a deliberately conservative $\phi$ = 0.25 (a quarter of the low-frequency weight is attributed to the vagal branch) and is varied between 0.10 and 0.50 in the sensitivity analyses. In addition, sympathetic oscillations peak heavily around the 0.10 Hz baroreflex resonance frequency ($f_c$ = 0.10 Hz) [@Pomeranz1985]. Furthermore, due to the sluggish intracellular signaling kinetics of beta-adrenergic cascades, sympathetic transfer is structurally limited to a negligible leakage fraction of less than 5% ($\epsilon$ = 0.05) above the standard 0.15 Hz high-frequency boundary [@Hayano1991; @hopf1995low; @TaskForce1996]. Second, the OU drives have Lorentzian power spectra whose integral equals the stationary variance (Parseval relation), so that the ratio of partitioned energies in the observed heart-rate spectrum is taken as the ratio of latent stationary variances. This ignores differences in the transfer from latent drive to observed heart rate (for example, the low-pass effect of integration over each interval) and is therefore an approximation.
+
+## Priors, MAP objective and optimization {#sec-map-priors}
+
+The parameters $\theta = (\theta_1, \theta_2, \theta_3)$ are mapped to the physical scale by $\kappa_s = e^{\theta_1}$, $\kappa_p = \kappa_s + e^{\theta_2}$ and $\lambda_R = e^{\theta_3}$, which ensures positivity and $\kappa_p > \kappa_s$ without bound constraints. The log-prior terms, defined up to additive constants, are as follows.
+
+*Time-scale priors.* For $b \in \{p, s\}$ with default central $c$-coverage interval $[\tau^{lo}_b, \tau^{hi}_b]$ (default $c = 0.95$),
+
+$$
+\ln p(\tau_b) = -\tfrac{1}{2}\left(\frac{\ln\tau_b - \mu_b}{\varsigma_b}\right)^2, \quad
+\mu_b = \tfrac{1}{2}\left(\ln\tau^{lo}_b + \ln\tau^{hi}_b\right), \quad
+\varsigma_b = \frac{\ln\tau^{hi}_b - \ln\tau^{lo}_b}{2\,z_{(1+c)/2}},
+$$
+that is, a log-normal prior whose central interval is the stated range, with $z_{(1+c)/2}$ the standard normal quantile.
+
+*Separation prior.* With $U = (\kappa_p - \kappa_s)/(\kappa_p + \kappa_s) \in (0, 1)$ and $1 - U = 2\kappa_s/(\kappa_p + \kappa_s)$,
+
+$$
+\begin{aligned}
+\ln p(U) &= (\alpha - 1)\ln U + (\beta - 1)\ln(1 - U), \\
+\alpha - 1 &= w\,U^*, \quad \beta - 1 = w\,(1 - U^*), \quad U^* = \frac{r - 1}{r + 1},
+\end{aligned}
+$$
+which is a Beta density with mode $U^*$ corresponding to $\kappa_p/\kappa_s = r$ and strength $w$. The defaults are $r = 20$ and $w = 10$.
+
+*Timing-jitter prior.* The equivalent RR timing jitter at the median interval $\tilde{\Delta t}$ is $s_{RR} = \sqrt{\hat\sigma^2_{sys}\,\lambda_R\,\tilde{\Delta t}}/\hat\nu_0$, and a log-normal prior is placed on it, constructed as above from the central interval $[0.5, 20]$ ms. The hyperparameters are fixed and independent of the data, but $s_{RR}$ depends on the profiled quantities.
+
+The objective minimized is
+
+$$
+\mathrm{Cost}(\theta) = -\left[\mathcal{L}^* + \ln p(\tau_s) + \ln p(\tau_p) + \ln p(U) + \ln p(s_{RR})\right],
+$$
+and non-finite values are replaced by $10^{12}$ so that the optimizer backs off. Optimization uses the BFGS algorithm (R `optim`, finite-difference gradients, at most 1000 iterations) from a single start: $\kappa_s$ and $\kappa_p$ at the inverse of the geometric centers of the time-scale priors (with $\kappa_p - \kappa_s$ floored at 0.05 s$^{-1}$), and $\lambda_{R,0} = 10^{-3}$. A single start does not guarantee a global optimum.
+
+## Parameter uncertainty
+
+Standard errors are computed from the numerical Hessian $\mathcal{H}$ of $\mathrm{Cost}(\theta)$ at the optimum. The covariance of $\theta$ is approximated by the Moore–Penrose pseudo-inverse $\mathcal{H}^{+}$, which tolerates near-singularity, and mapped to the physical parameters through the Jacobian $\mathcal{J}$ of $\theta \mapsto (\kappa_s, \kappa_p, \lambda_R)$, giving $\mathrm{Cov} = \mathcal{J}\,\mathcal{H}^{+}\,\mathcal{J}^\top$. For the time constants, the delta method gives $\mathrm{Var}(\tau) \approx \mathrm{Var}(\kappa)/\kappa^4$. Wald 95% intervals are $\text{estimate} \pm 1.96\,\mathrm{SE}$. The profiled ($\hat\nu_0$, $\hat\sigma^2_{sys}$), fixed ($\lambda_P$, hyperparameters) and derived quantities carry no standard error, and the intervals therefore do not reflect uncertainty in $\lambda_P$ or in the hyperparameters.
+
+## Default settings
+
+@tbl-settings lists the default configuration of the engine.
+
+| Group | Setting | Default |
+| :--- | :--- | :--- |
+| Time-scale priors | Central 95% interval of $\tau_p$ / $\tau_s$ | [3, 6] s / [100, 300] s |
+| Separation prior | Target $\kappa_p/\kappa_s$; weight | 20; 10 |
+| Timing-jitter prior | Central 95% interval | [0.5, 20] ms |
+| Spectral anchor | Integration range; crossover $f_c$; leakage $\epsilon$ at 0.15 Hz; vagal floor $\phi$; CWT sampling rate | 0.04–0.40 Hz; 0.10 Hz; 0.05; 0.25; 4 Hz |
+| Artifact multiplier | $\theta_J$; $p_J$; likelihood-exclusion multiplier | 0.25; 10; 100 |
+| Optimizer | Method; maximum iterations; $\lambda_{R,0}$; floor on $\kappa_p - \kappa_s$ at start | BFGS; 1000; $10^{-3}$; 0.05 s$^{-1}$ |
+| Reporting | Diagnostic multiplier limit; PACF lags | 1.5; 40 |
+
+: Default configuration of the estimation engine {#tbl-settings}
+
+All reported analyses use these defaults unless stated in the main text; the configuration file (`config.R`) accompanying the analysis code records every setting, including the analysis windows, the number of multi-start fits and the simulation sizes.
+
+# Goodness-of-fit diagnostic in diffusion-based phase-domain architectures {#sec-diagnostics}
+
+Point-process models are commonly assessed with the Kolmogorov–Smirnov (KS) test applied to time-rescaled intervals. The classical time-rescaling theorem assumes probabilistic event arrivals, whereas SPARK models a deterministic threshold crossing of a stochastic diffusion. This section describes how the same principle, which is the probability integral transform of model-standardized quantities to a uniform distribution, is applied to the phase-domain innovations. The two settings differ in the generative noise distribution but share this mapping.
+
+## The classical Poisson arrival formulation
+
+In classical point-process statistics, a heartbeat is a stochastic arrival governed by a conditional intensity function $\lambda(t)$. The time-rescaling theorem states that integrating the intensity over the observed inter-beat interval $[t_{k-1}, t_k]$,
+
+$$
+\Lambda_k = \int_{t_{k-1}}^{t_k} \lambda(t)\, dt,
+$$
+
+transforms the sequence of intervals into unit-rate exponential variates, $\Lambda_k \sim \text{Exp}(1)$. The exponential CDF maps these to a uniform distribution:
+
+$$
+u_k = 1 - \exp(-\Lambda_k) \sim \mathcal{U}(0,1),
+$$
+
+which is evaluated with the KS test.
+
+## The phase-domain diffusion formulation
+
+In SPARK, the event is triggered when the accumulated phase reaches a threshold of $1$, and the stochasticity arises from the diffusion within the interval together with uncertainty about the latent drives. Over the observed interval, the filter predicts the phase from the past data and the baseline, and the innovation is
+
+$$
+v_k = v_k^{(0)} - \hat{\nu}_0\,v_k^{(\nu)} = 1 - \hat{\nu}_0\,\Delta t_k - H\,\hat{X}_{k|k-1},
+$$
+
+the difference between the observed unit phase and its one-step-ahead prediction. If the model and the parameters are correct, $v_k$ is conditionally Gaussian with zero mean and variance $\sigma^2_{sys} S_k$, where $S_k = H P_{k|k-1} H^\top + R_k$ combines the prediction uncertainty of the integrated drives and the threshold noise. In contrast to the exponential variates of the Poisson formulation, the standardized innovation is therefore normal.
+
+## Standardization and the probability integral transform
+
+The standardized innovation is
+
+$$
+z_k = \frac{v_k}{\sqrt{\hat\sigma^2_{sys}\,S_k}} \;\approx\; \mathcal{N}(0, 1),
+$$
+
+and the probability integral transform with the standard normal CDF gives
+
+$$
+u_k = \Phi(z_k) \;\approx\; \mathcal{U}(0, 1).
+$$
+
+Uniformity of $u_k$ is assessed with the KS distance $D$, and the approximate 5% critical value is $1.36/\sqrt{N}$. Because $\hat{\nu}_0$, $\hat\sigma^2_{sys}$ and the kinetic parameters are estimated from the same series, the nominal critical value is approximate, and the test is conservative in this respect. Serial independence is assessed with the partial autocorrelation function (PACF) of $z_k$ over 40 lags, with bounds at $\pm 1.96/\sqrt{N}$. Diagnostics retain beats with finite innovations and artifact multiplier $\mu_k < 1.5$, and the innovation variance used for standardization excludes the artifact inflation. The plug-in values used for $\hat\nu_0$ and $\hat\sigma^2_{sys}$ make the standardized innovations approximate.
+
+The diagnostic follows the time-rescaling principle of isolating the model-standardized noise and mapping it to a uniform distribution, and it is not an application of the Poisson-specific theorem. Agreement with uniformity and serial independence is necessary for adequacy but does not establish it, since the diagnostics may have limited power against specific misspecifications, including the structure of the latent decomposition.
+
+# Interval-variance scaling under first-passage {#sec-heteroskedasticity}
+
+Respiratory sinus arrhythmia is generally larger when vagal tone is high, so that the variance of the observed intervals depends on the vagal state. This section examines how such dependence arises under a strict first-passage formulation, and why it is not carried automatically by the phase-domain filter.
+
+For a Brownian motion with constant drift $\nu$, diffusion coefficient $\sigma_z$ and threshold $a = 1$, the first-passage time $\tau$ follows an inverse Gaussian distribution with
+
+$$
+\mathbb{E}[\tau] = \frac{1}{\nu}, \qquad \mathrm{Var}(\tau) = \frac{\sigma_z^2}{\nu^3}.
+$$
+
+The variance is inversely proportional to the cube of the drift. For a fixed diffusion coefficient, a decrease in the net drift, such as that produced by greater vagal influence, therefore increases the variance of the interval by a power law (and not exponentially), whereas an increase in the drift decreases it. This is a qualitative agreement with the dependence of interval variability on vagal tone, and it holds for the strict first-passage formulation with locally constant drift.
+
+In the phase-domain filter, the measurement equation conditions on the observed interval, and its variance, $\sigma^2_{sys}S_k$, depends on the kinetic parameters, the time elapsed and the artifact multiplier, but not on the level of $x_p$. State-dependent interval variance is therefore not represented by the filter, and the stationary variances of the two drives are treated as constant within a recording. This is an assumption that may be restrictive when the vagal level changes strongly, for example during exercise or orthostatic perturbation (see Limitations in the main text).
+
+# Continuous-discrete state-space formulation via matrix exponential {#sec-matrix-exponential}
+
+The framework evaluates continuous-time kinetics across irregular sampling intervals without Euler–Maruyama approximation, by augmenting the state with the running integrals of the drives. Let $\tilde{X}(t) = [x_p(t), x_s(t), I_p(t), I_s(t)]^\top$, where $x_p$ and $x_s$ are the Ornstein–Uhlenbeck drives and $I_p$, $I_s$ their running integrals. The dynamics are the linear SDE
+
+$$
+d\tilde{X}(t) = A\,\tilde{X}(t)\,dt + G\,dW(t),
+$$
+
+with
+
+$$
+A = \begin{bmatrix}
+-\kappa_p & 0 & 0 & 0 \\
+0 & -\kappa_s & 0 & 0 \\
+1 & 0 & 0 & 0 \\
+0 & 1 & 0 & 0
+\end{bmatrix}, \qquad
+G = \begin{bmatrix} \sigma_p & 0 \\ 0 & \sigma_s \\ 0 & 0 \\ 0 & 0 \end{bmatrix}.
+$$
+
+Because the system is linear and time-invariant between observations, the transition over any observed interval $\Delta t_k$ is given by the matrix exponential:
+
+$$
+\Phi_k = \exp(A\,\Delta t_k) = \begin{bmatrix}
+e^{-\kappa_p \Delta t_k} & 0 & 0 & 0 \\
+0 & e^{-\kappa_s \Delta t_k} & 0 & 0 \\
+\frac{1 - e^{-\kappa_p \Delta t_k}}{\kappa_p} & 0 & 1 & 0 \\
+0 & \frac{1 - e^{-\kappa_s \Delta t_k}}{\kappa_s} & 0 & 1
+\end{bmatrix}.
+$$
+
+This transition allows the Kalman recursion to propagate the state across irregular intervals without discretization error in the deterministic part of the dynamics; the process covariance is computed from the closed-form integrals given in the estimation algorithm. After each measurement update, the integral states are reset to zero, which represents the restart of phase accumulation at each beat.
+
+## Explicit derivation of the transition matrix
+
+The matrix exponential is evaluated from its Taylor series,
+
+$$
+\exp(A\,\Delta t_k) = \sum_{n=0}^{\infty} \frac{(A\,\Delta t_k)^n}{n!} = I + A\,\Delta t_k + \frac{1}{2!} A^2 \Delta t_k^2 + \dots
+$$
+
+Given the block structure of $A$, its powers follow a regular pattern. For any integer $n \ge 1$,
+
+$$
+A^n = \begin{bmatrix}
+(-\kappa_p)^n & 0 & 0 & 0 \\
+0 & (-\kappa_s)^n & 0 & 0 \\
+(-\kappa_p)^{n-1} & 0 & 0 & 0 \\
+0 & (-\kappa_s)^{n-1} & 0 & 0
+\end{bmatrix}.
+$$
+
+For the top-left element, which governs $x_p$, the series reduces to the scalar exponential:
+
+$$
+\sum_{n=0}^{\infty} \frac{(-\kappa_p \Delta t_k)^n}{n!} = e^{-\kappa_p \Delta t_k}.
+$$
+
+For the element in position $(3,1)$, which governs $I_p$, the series starts at $n = 1$, because the identity matrix has a zero in this position. Extracting a factor of $-1/\kappa_p$ gives
+
+$$
+\sum_{n=1}^{\infty} \frac{\Delta t_k^n}{n!} (-\kappa_p)^{n-1} = -\frac{1}{\kappa_p} \sum_{n=1}^{\infty} \frac{(-\kappa_p \Delta t_k)^n}{n!}.
+$$
+
+The right-hand sum is the Taylor series of $e^{-\kappa_p \Delta t_k}$ minus its $n = 0$ term, which equals $1$, so that
+
+$$
+-\frac{1}{\kappa_p} \left( e^{-\kappa_p \Delta t_k} - 1 \right) = \frac{1 - e^{-\kappa_p \Delta t_k}}{\kappa_p}.
+$$
+
+Because the vagal and sympathetic pathways are decoupled in $A$, the same reduction applies to the sympathetic parameters. The element in position $(2,2)$ is
+
+$$
+\sum_{n=0}^{\infty} \frac{(-\kappa_s \Delta t_k)^n}{n!} = e^{-\kappa_s \Delta t_k},
+$$
+
+and the element in position $(4,2)$ is
+
+$$
+-\frac{1}{\kappa_s} \left( e^{-\kappa_s \Delta t_k} - 1 \right) = \frac{1 - e^{-\kappa_s \Delta t_k}}{\kappa_s}.
+$$
+
+Finally, the right half of $A^n$ is zero for all $n \ge 1$, so the elements in positions $(3,3)$ and $(4,4)$ come only from the identity matrix and equal $1$. Assembling these scalar solutions gives the closed-form transition matrix $\Phi_k$, in which the accumulation of the integral states is evaluated analytically and without numerical integration over each interval.
+
+# Simulation model and recovery under known truth {#sec-simulation}
+
+Synthetic recordings were generated from the model so that the latent drives are known. On a fine grid of step $h = 0.01$ s, the drives were simulated by their exact Ornstein–Uhlenbeck transition, $x(t+h) = e^{-\kappa h}x(t) + \sqrt{V(1 - e^{-2\kappa h})}\,\varepsilon$, with stationary variances $V_s = \sigma^2_{sys}$ and $V_p = \lambda_P\sigma^2_{sys}$; the phase increments were $\{\nu_0 - x_p + x_s\}\,h + \sqrt{\sigma^2_{sys}\lambda_R h}\,\varepsilon'$, a beat was registered at the interpolated threshold crossing, and the phase was reset at each beat. Deterministic profiles added to the drives (exponential approach to a target amplitude, followed by exponential decay for exercise) were used to mimic a perturbation or an exercise bout; these departures from the stationary OU model make the benchmarks conservative with respect to model misspecification. Default generating values were $\nu_0 \approx$ 1.2 Hz, $\sigma^2_{sys} = 9\times10^{-4}$ Hz$^2$ and $\lambda_R = 0.02$.
+
+The recovery study used four scenarios: true time scales within the prior ranges ($\tau_p$ 3.5–5.5 s, $\tau_s$ 120–250 s), outside them ($\tau_p$ 8–12 s, $\tau_s$ 40–70 s), and with vagal-dominant ($\lambda_P$ 6–12) or sympathetic-dominant ($\lambda_P$ 0.2–0.5) variance. Each specification was fitted to each recording and compared with the generating values (supplementary figure S1).
+
+```{r}
+#| label: tbl-sim-summary
+#| tbl-colwidths: [22, 13, 4, 11, 11, 10, 10, 19]
+#| tbl-cap: "Recovery under known truth: median absolute log-error of the time constants, median correlation between reconstructed and true states, and median absolute error of the share of vagal variance, by scenario and specification."
+#| echo: false
+if (!is.null(sim_recovery)) {
+  x <- sim_recovery$summary[order(scenario, spec)]
+  knitr::kable(data.frame(Scenario = gsub("\n", " ", unname(SCENARIO_LABELS[x$scenario])), Spec. = spec_tex(x$spec), n = x$n,
+                          `Abs. error of ln $\\tau_p$` = round(x$med_abs_ln_err_tau_p, 2), `Abs. error of ln $\\tau_s$` = round(x$med_abs_ln_err_tau_s, 2),
+                          `Corr. of $x_p$` = round(x$med_cor_x_p, 2), `Corr. of $x_s$` = round(x$med_cor_x_s, 2),
+                          `Abs. error of the share of $x_p$ variance` = round(x$med_abs_share_err, 2), check.names = FALSE))
+} else cat("[PENDING: results/sim_recovery.rds]")
+```
+
+![Recovery under known truth. Errors in the time constants and in the share of vagal variance, and correlation of the reconstructed states with the true drives, by scenario and specification.](figures/figS1_simulation_recovery.png){#fig-supp-sim width=100%}
+
+# Identifiability and sensitivity analyses: details {#sec-ident-details}
+
+*Starting points.* The first start of each recording is the engine default (centers of the time-scale priors, $\lambda_{R,0} = 10^{-3}$). The remaining starts are drawn log-uniformly with the same random numbers for all specifications of a recording, seeded by the recording identifier. The vagal rate is required to exceed the sympathetic rate by construction ($\kappa_p = \kappa_s + e^{\theta_2}$).
+
+*Distinct solutions.* Starts are visited in order, and a start opens a new solution if its distance in $(\ln\tau_p, \ln\tau_s)$ to every existing solution center exceeds the clustering radius (0.10, approximately a 10% difference in each time constant).
+
+*Metrics of the multi-start fits.* Starts are drawn log-uniformly ($\tau_s$ 20–600 s; $\tau_p$ 0.5–30 s with $\tau_p < 0.8\,\tau_s$; $\lambda_R$ $10^{-4}$–$10^{-1}$; $\lambda_P$ 0.05–20 for specifications in which it is free). For each recording and specification, the following quantities were computed: (i) the number of *distinct solutions*, defined by greedy clustering of the estimates in $(\ln\tau_p, \ln\tau_s)$ with radius 0.10; (ii) the *near-equivalent fits*, defined as fits whose profiled log-likelihood lies within 2 units of the best fit, together with the dispersion of $\ln\tau_p$ and $\ln\tau_s$ and the number of distinct solutions among them; (iii) the dispersion of the reconstructed trajectories among near-equivalent fits (root-mean-square across-start SD of $x_p(t)$ and $x_s(t)$ relative to their within-trajectory SD) and their median pairwise correlation; (iv) the *share of $x_p$ variance*, $\mathrm{Var}(\hat x_p)/[\mathrm{Var}(\hat x_p)+\mathrm{Var}(\hat x_s)]$, and the proportion of fits in which one process absorbed essentially all variability (share below 0.05 or above 0.95), referred to as one-process collapse; (v) the proportion of fits whose $\tau_p$ and $\tau_s$ both lie within the 95% intervals of the time-scale priors; and (vi) the retained fit to RR (RMSE and profiled log-likelihood). Because the priors alter the objective, specifications are compared on the profiled log-likelihood and RR error, and not on the posterior objective.
+
+*Quantities recorded in the sensitivity analyses.* Using $M_3$ as the reference, each hyperparameter of the identification structure was varied one at a time (time-scale intervals, separation target and weight, timing-jitter interval, spectral crossover, sympathetic leakage and vagal floor), and each prior component was removed in turn (leave-one-out). For each variation, the log-ratio of $\tau_p$ and $\tau_s$ to the reference, the correlation and the normalized root-mean-square difference of the reconstructed states, and the change in RR error were recorded. The data-informativeness of the kinetic estimates was assessed by the position of the estimates relative to the prior (standardized distance from the prior center and the proportion within the 95% prior interval), by the posterior contraction of $\ln\tau$ ($1 - $ posterior variance / prior variance, from the Laplace approximation), and by the log-ratio of the $M_3$ and $M_0$ estimates.
+
+*Laplace standard deviations.* With $\mathcal{H}$ the numerical Hessian of the objective in $\theta = (\ln\kappa_s, \ln(\kappa_p - \kappa_s), \dots)$ and $\mathcal{H}^+$ its pseudo-inverse, the covariance of $(\ln\tau_s, \ln\tau_p)$ is $J\mathcal{H}^+J^\top$ with $\partial\ln\tau_s/\partial\theta_1 = -1$, $\partial\ln\tau_p/\partial\theta_1 = -\kappa_s/\kappa_p$ and $\partial\ln\tau_p/\partial\theta_2 = -(\kappa_p - \kappa_s)/\kappa_p$. Posterior contraction relative to the log-normal prior is $1 - \mathrm{Var}_{post}/\mathrm{Var}_{prior}$, with $\mathrm{Var}_{prior} = \varsigma^2$ as defined in the estimation algorithm. A negative value indicates a posterior wider than the prior; the quantity is local and approximate (Laplace) and is used descriptively.
+
+*Profile surfaces.* On a log-spaced grid ($\tau_p$ 0.5–30 s, $\tau_s$ 20–600 s), $\tau_p$ and $\tau_s$ were fixed at each grid point with $\tau_p < \tau_s$, and $\lambda_R$ (and $\lambda_P$ in $M_0$, $M_1$) were optimized (one-dimensional Brent search or Nelder–Mead). The surface is the resulting objective minus its minimum.
+
+*Hyperparameter variations.* @tbl-sens-settings lists the variations. Each was applied to $M_3$ with all other settings at their defaults, and the leave-one-out specifications remove the time-scale priors, the separation prior, the timing-jitter prior or the spectral anchor (in which case $\lambda_P$ becomes free).
+
+| Hyperparameter | Default | Variations |
+| :--- | :--- | :--- |
+| $\tau_p$ interval (s) | [3, 6] | [3.5, 5], [2, 9], [1.5, 3], [6, 12] |
+| $\tau_s$ interval (s) | [100, 300] | [150, 250], [60, 500], [50, 150], [200, 600] |
+| Separation target $\kappa_p/\kappa_s$ | 20 | 10, 40 |
+| Separation weight | 10 | 5, 20 |
+| Timing-jitter interval (ms) | [0.5, 20] | [1, 10], [0.2, 50] |
+| Spectral crossover (Hz) | 0.10 | 0.08, 0.12 |
+| Sympathetic leakage at 0.15 Hz | 0.05 | 0.02, 0.10 |
+| Vagal floor fraction | 0.25 | 0.1, 0.5 |
+
+: Hyperparameter variations used in the sensitivity analysis {#tbl-sens-settings}
+
+```{r}
+#| label: tbl-sens-summary
+#| tbl-colwidths: [17, 21, 5, 10, 10, 9, 9, 10, 9]
+#| tbl-cap: "Sensitivity of the $M_3$ reconstructions to the hyperparameters (median across recordings). Varied: one hyperparameter changed at a time; Removed: one prior term left out."
+#| echo: false
+if (!is.null(sensitivity)) {
+  x <- sensitivity$summary[order(kind, setting)]
+  knitr::kable(data.frame(Kind = ifelse(x$kind == "hyperparameter", "Varied", "Removed"), Setting = setting_axis_label(x$setting), n = x$n,
+                          `Abs. change in ln $\\tau_p$` = round(x$med_abs_ln_tau_p, 2), `Abs. change in ln $\\tau_s$` = round(x$med_abs_ln_tau_s, 2),
+                          `Corr. of $x_p$` = round(x$med_cor_x_p, 3), `Corr. of $x_s$` = round(x$med_cor_x_s, 3),
+                          `Rel. RMSD of $x_p$` = round(x$med_rel_rmsd_x_p, 2), `Rel. RMSD of $x_s$` = round(x$med_rel_rmsd_x_s, 2), check.names = FALSE))
+} else cat("[PENDING: results/sensitivity.rds]")
+```
+
+![Sensitivity to the hyperparameters. (A) Largest absolute log-ratio of $\tau_p$ and $\tau_s$ relative to the reference. (B) Lowest correlation of the reconstructed states with the reference trajectories.](figures/figS2_sensitivity.png){#fig-supp-sens width=100%}
+
+*Results of the sensitivity analyses.* `r narrate_constraints(ident, sensitivity, sim_recovery, part = "supplement")` Supplementary figure S2 shows the changes of the time constants and of the reconstructed states for each variation.
+
+# Recovery-time benchmark {#sec-recovery-benchmark}
+
+*Definitions.* For each state, smoothed with a 10-s moving average, with the excursion measured from the rest level, four definitions of recovery were compared: (a) *sustained return*, the first time after the end of exercise at which the excursion remains within 1 rest SD for 20 s; (b) *first return*, the first time within 1 rest SD; (c) *90% recovery*, the first time at which the excursion falls below 10% of its end-of-exercise value; and (d) *exponential constant*, the time constant of an exponential decay fitted to the excursion after the end of exercise. Recordings that did not meet the criterion within the observation window were treated as right-censored at the end of the recording (Kaplan–Meier medians are reported), and recordings without an excursion larger than 1 rest SD were flagged.
+
+*Benchmark.* Simulated rest–exercise–recovery recordings were generated with known recovery constants ($\tau_{off,p}$ 12–60 s, $\tau_{off,s}$ 25–100 s), each profile realized twice with independent noise. Each realization was fitted ($M_3$), events were detected, and the four recovery definitions (main text) were computed for each state under each end-of-exercise rule. The score of a definition was the success proportion multiplied by the mean of the two correlations, and the end-of-exercise rule with the smallest median absolute error was retained. @tbl-recovery-benchmark reports, for the retained end-of-exercise rule, the proportion of recordings with a defined estimate, the Spearman correlation with the true constant and the test-retest Spearman correlation between the two realizations.
+
+```{r}
+#| label: tbl-recovery-benchmark
+#| tbl-cap: "Benchmark of recovery-time definitions on simulated recordings (mean over the two states)."
+#| echo: false
+if (!is.null(recovery_benchmark)) { a <- recovery_benchmark$choice$aggregate
+  knitr::kable(data.frame(Definition = a$definition, `Defined estimate` = sprintf("%.0f%%", 100 * a$success), `Rank correlation with truth` = round(a$rho_truth, 2),
+                          `Test-retest rank correlation` = round(a$rho_retest, 2), Score = round(a$score, 2), check.names = FALSE)) } else cat("[PENDING: results/recovery_choice.rds]")
+```
+
+The definition with the highest score was `r txt(if (!is.null(recovery_benchmark)) recovery_benchmark$choice$definition)`, and the end-of-exercise rule with the smallest median absolute error was `r txt(if (!is.null(recovery_benchmark)) recovery_benchmark$choice$end_method)` (`r txt(if (!is.null(recovery_benchmark)) recovery_benchmark$choice$n_profiles)` simulated profiles; supplementary figure S3). The ranking depends on the simulated profiles, on the 10-s smoothing and on the tolerance of 1 rest SD, and should be revisited if the real recovery curves differ qualitatively (for example, non-monotonic recovery).
+
+![Benchmark of recovery-time definitions: proportion of defined estimates, rank correlation with the true constant, and test-retest rank correlation, for each state.](figures/figS3_recovery_benchmark.png){#fig-supp-recovery width=100%}
+
+# Calibration of the innovation diagnostics {#sec-calibration}
+
+To examine the behavior of the Kolmogorov–Smirnov and PACF diagnostics when the model is correctly specified and its parameters are estimated from the same data, recordings were simulated from the model (time scales within the prior ranges) and fitted with $M_3$. Across `r txt(if (!is.null(checks)) nrow(checks$calibration))` simulated recordings, the KS distance exceeded the approximate critical value $1.36/\sqrt{N}$ in `r txt(if (!is.null(checks)) pct(mean(checks$calibration$KS_Stat > checks$calibration$crit)))` (nominal level 5% if parameters were known), the mean number of PACF lags outside the bounds was `r txt(if (!is.null(checks)) sprintf("%.2f", mean(checks$calibration$pacf_viol)))` of 40 (nominal 2.0), and the SD of the standardized innovations had a mean of `r txt(if (!is.null(checks)) sprintf("%.3f", mean(checks$calibration$z_sd)))` (nominal 1). Supplementary figure S4 summarizes these checks together with the numerical verification of the bound.
+
+![Numerical checks. (A) Neglected reflection term and its bound as a function of $\varepsilon$. (B) Fitted $\varepsilon$ in the recordings. (C) KS distance versus critical value in well-specified simulations.](figures/figS4_supplement_checks.png){#fig-supp-checks width=100%}
+
+The closed-form process covariance of the Ornstein–Uhlenbeck integrals (including the Taylor branch used for $\kappa\Delta t < 10^{-3}$) was compared with numerical integration by the Van Loan method over a grid of rates, intervals and variances; the maximum relative error was `r txt(if (!is.null(checks)) sprintf("%.1e", max(checks$ou_block[taylor == FALSE]$max_rel_err)))` for the closed form and `r txt(if (!is.null(checks)) sprintf("%.1e", max(checks$ou_block[taylor == TRUE]$max_rel_err)))` for the Taylor branch. The compiled filter used to accelerate the multi-start analyses reproduced the engine's R filter (likelihood, filtered states and implied RR) with a maximum discrepancy of `r txt(if (!is.null(checks) && !is.null(checks$cpp_vs_r)) sprintf("%.0e", max(unlist(checks$cpp_vs_r[, .(d_LL, d_x_p, d_x_s, d_rr)]))))`.
+
+# Data preparation and its checks {#sec-data-prep}
+
+*Data files.* Each recording was stored as a CSV file with one row per ECG-derived RR interval: the time of the end of the interval (`time`, s; record clock for PRCP and Fantasia, cumulative RR clock for the exercise cohort), the RR interval (`rri`, s; `rri` equals the difference of successive `time` values) and, when available, systolic and diastolic blood pressure and MAP of the cardiac cycle of the interval, respiration (Fantasia; mean over the interval) or the tilt-table angle (PRCP; mean over the interval). Beat annotations gave the RR intervals; for PRCP, the protocol annotations of each record (start and end of every tilt, the stand-up maneuvers and the returns to supine) were also read and stored as a table of maneuvers. Blood pressure was read from the arterial waveform in a window of one pulse per beat, shifted by the ECG-to-pulse delay estimated for each record from the ensemble-averaged waveform, and implausible values were set to missing. RR intervals, blood pressure and respiration were cleaned with an adaptive running-median/median-absolute-deviation gate (window of 50 beats; values beyond 3.5 median absolute deviations replaced by linear interpolation; two passes), a setting chosen on simulated series with injected artifacts because it altered few artifact-free beats (about 0.2%) while correcting most artifacts (about 99.7%; supplementary material). In PRCP, RR intervals between 0.3 and 2 s that fell within 5 s before to 30 s after a maneuver boundary were left unchanged, because genuine fast changes at these transitions (for instance a return to supine) resemble outliers. For PRCP, arterial pressure between an annotated loss of the Finapres signal and its switch-on was set to missing. Not all recordings contained all signals: blood pressure, respiration or the tilt angle was missing for some subjects, and the analyses that use them were restricted to the recordings with at least 80% valid values in the analysis window, with the number of recordings reported for each analysis. The latent model itself uses only the RR intervals. The `rri` column was used as written in all datasets. All time-based analyses use the file's `time` column as the common clock for the latent states and for the covariates. For PRCP, arterial pressure between an annotated loss of the Finapres signal and its switch-on was set to missing.
+
+*Preparation script.* The recordings were prepared from the WFDB files (Fantasia, PRCP) and the text files of RR intervals (exercise cohort). The beat table is built once from the ECG annotations (beat symbols only), so that `time[k] - time[k-1] = rri[k]` exactly and the covariates of a row refer to the same cardiac cycle. For blood pressure, the delay between the R peak and the foot of the arterial pulse is estimated per record (minimum of the ensemble-averaged waveform), systolic and diastolic pressure are the maximum and minimum of the waveform in the pulse window of each beat, values outside plausible ranges (systolic 50–300 mmHg, diastolic 20–200 mmHg, pulse pressure of at least 10 mmHg) are set to missing, and a signal with fewer than 80% valid values is treated as absent. For PRCP, the RR intervals come from the ECG beats and the arterial pressure from the ABP waveform in the pulse window of each ECG beat. For PRCP, the protocol annotations (`.anI`: start and end of every slow and rapid tilt, stand-up from supine, back to supine) are parsed into `prcp_events.csv`, one row per maneuver; labels that are not recognized are reported by the script and are not used. A quality table (`prep_qc.csv`) records, per recording, the number of beats, the proportion of RR values changed by cleaning, gaps, the estimated delay and the signals present. The script was verified by running it on synthetic WFDB records with known truth (`tests/test_prep.R`): the RR intervals, beat times, pressure values, respiration and angle written to the CSV files matched the generating values; the delay was recovered; injected pressure artifacts and dropouts were cleaned; absent channels produced missing columns; and the resulting files were read by the analysis loader and fitted by the model.
+
+*Cleaning gate.* The gate replaces values beyond a multiple of the local median absolute deviation (running median and MAD over 50 beats) by linear interpolation, and is repeated. Settings were compared on simulated resting series with respiratory modulation and about 3% injected artifacts (ectopic pairs, long and short intervals, isolated spikes; `tests/benchmark_cleaning_gate.R`). The gating strategy (setting 3.5 median absolute deviations with two passes) altered about 0.2% of artifact-free beats, corrected about 99.7% of the artifacts and left RMSSD within about 2% of the artifact-free value. In PRCP, RR intervals between 0.3 and 2 s lying within 5 s before to 30 s after a maneuver boundary are not replaced: in a record with six maneuvers, the gate would otherwise have altered four to five beats of up to 0.4 s at each return to supine, a genuine fast change, and this protection left the proportion of altered beats of that record at 0.9% instead of 1.1%.
+
+# Event detection {#sec-event-detection}
+
+*Maneuvers, labels and baselines.* Each tilt was labeled slow or rapid from the annotated tilt whose ascent contained the angle-derived onset (within 5 s); the wording of the annotations differs between records and is parsed accordingly. For recordings without a usable angle signal the annotated tilt times were used (onset: start of the ascent; return: end of the descent). Every maneuver, not only tilts, spaces the baseline of the next one. For tilt recordings, which can contain several perturbations, the heart-rate segmentation allowed up to thirteen segments (six perturbations) with a minimum segment length of 30 s, and for the exercise recordings one to three segments. The onset was defined as an upward change point, and recovery as the next downward change point that brought heart rate back at least halfway to its pre-perturbation level (a dip inside a perturbation did not end it); for the exercise recordings only the first upward change point was used, and the parametric profile was fitted over exercise durations of 40–360 s.
+
+*Tilt angle.* The (beat-wise) angle is median-filtered (5 beats) and the baseline taken as its median over the first 60 s. The onset is the first time at which the angle exceeds the baseline by more than 10° for at least 5 s, and the return the first later time at which it lies within 10° of baseline for 5 s. Plateaus are runs of at least 20 s of the same angle rounded to 5°, and the state means over the second half of a plateau are used for the dose-response analysis.
+
+*Heart rate.* Heart rate (Hz) is interpolated at 1 Hz and averaged in bins of $b = 5$ s. For $K = 1, 2, 3$ segments, the optimal piecewise-constant partition with segments of at least 30 s is found by exact dynamic programming (minimizing the residual sum of squares). The number of segments is selected by the Bayesian information criterion $n\ln(\mathrm{SSE}/n) + (2K - 1)\ln n$ among partitions in which adjacent segment means differ by at least $\Delta_{min}$ (default 0.10 Hz, approximately 6 bpm); the best-scoring $K$ satisfying the rule is retained, and $K = 1$ (no event) otherwise. Change points are placed midway between adjacent bins. The BIC treats the binned values as independent, which is approximate for a smooth heart-rate series, and the minimum-shift rule is the operative safeguard against false detections.
+
+For exercise recordings, the profile $HR(t) = h_0 + A\,g(t)$ is also fitted, with $g(t) = 0$ before the onset $t_{on}$, $g(t) = 1 - e^{-(t - t_{on})/\tau_{on}}$ until the end of exercise $t_{off}$, and $g(t) = g(t_{off})\,e^{-(t - t_{off})/\tau_{off}}$ afterwards. For each combination of the nonlinear parameters ($t_{on}$, $t_{off}$, $\tau_{on}$, $\tau_{off}$) on a coarse grid (about 80 points over the recording; exercise duration 40–360 s), $h_0$ and $A$ are obtained by linear least squares, and the best grid point is refined by Nelder–Mead. Three candidate rules for the end of exercise are compared: the heart-rate peak after the onset (smoothed over three bins), the second change point, and $t_{off}$.
+
+```{r}
+#| label: tbl-detect
+#| tbl-cap: "Heart-rate-based event detection on simulated recordings with known timing: detection rate for tilt-like recordings and false-detection rate in resting recordings as a function of the minimum-shift rule."
+#| echo: false
+if (!is.null(event_detection)) knitr::kable(data.frame(`Minimum shift (Hz)` = event_detection$false_detection$min_shift_hz, `Detection rate (tilt-like)` = sprintf("%.0f%%", 100 * event_detection$false_detection$detection_rate),
+                                          `False-detection rate (rest)` = sprintf("%.0f%%", 100 * event_detection$false_detection$false_detection_rate), check.names = FALSE)) else cat("[PENDING: results/event_detection.rds]")
+```
+
+In these simulations, the median onset error was `r txt(if (!is.null(event_detection)) sprintf("%.1f s", event_detection$summary$tilt_onset_err["med"]))` for tilt-like recordings, and the median absolute error of the end of exercise was `r txt(if (!is.null(event_detection)) paste(sprintf("%.1f s", event_detection$summary$ex_end_mae), collapse = ", "))` for the peak, second-change-point and profile rules, respectively. These values characterize the detection procedure under the simulated profiles, which are idealized. For recordings with repeated tilts, simulated with three tilts of 180 s separated by 240 s, `r txt(if (!is.null(event_detection)) pct(event_detection$summary$repeated_recall))` of the tilts were found (median onset error `r txt(if (!is.null(event_detection)) sprintf("%.1f s", event_detection$summary$repeated_onset_err["med"]))`), with `r txt(if (!is.null(event_detection)) sprintf("%.1f", event_detection$summary$repeated_extra))` additional events per recording. In the PRCP recordings, the accuracy against the tilt angle is shown in @fig-supp-events: each angle-derived onset was matched to the nearest heart-rate-detected onset within 60 s, and heart-rate events matching no tilt (other maneuvers that raise heart rate) were counted.
+
+![Event detection. (A) Heart-rate-detected minus angle- or annotation-derived onset and return of each maneuver (tilts and stand-ups) in the PRCP recordings. (B) Detected minus true times in simulated recordings with known timing. (C) False-detection rate in stationary simulated recordings and detection rate of simulated tilts as a function of the minimum shift between segments (dashed: value used).](figures/figS5_event_detection.png){#fig-supp-events width=100%}
+
+![State-space landscapes of the perturbation (top) and exercise (bottom) conditions. Each panel shows the pooled density of the filtered states in one phase (every recording contributes equally), with its basins (rings) and the mean flow of the states (arrows). Coordinates are in units of each recording's baseline SD; dark = high occupancy. The map is descriptive and is not a potential function estimated from the model.](figures/figS6_landscapes.png){#fig-supp-landscapes width=100%}
+
+# Responses by type of maneuver (PRCP) {#sec-prcp-kinds}
+
+The PRCP protocol comprises slow tilts, rapid tilts and stand-ups from supine, which the annotations of each record identify. The pooled analysis in the main text uses the tilts; @fig-supp-maneuvers shows the event-locked response of the two states, heart rate and MAP for each kind of maneuver, every event relative to its own baseline, and @tbl-prcp-contrasts the paired within-recording contrasts. The stand-ups are active changes of posture during which the table angle does not change, so they could not be identified from the angle. The contrasts are exploratory: recording medians, Wilcoxon signed-rank test, Benjamini-Hochberg across the table, and few recordings.
+
+`r narrate_prcp_kinds(prcp)`
+
+```{r}
+#| label: tbl-prcp-kinds
+#| tbl-cap: "Responses by type of maneuver in the PRCP recordings (median [25th, 75th percentile] over events; descriptive)."
+#| tbl-colwidths: [13, 10, 12, 15, 15, 8, 8, 19]
+#| echo: false
+minus <- function(x) gsub("-", "\u2212", x, fixed = TRUE)
+if (!is.null(prcp$by_kind) && nrow(prcp$by_kind) > 1) {
+  k <- prcp$by_kind
+  fmt <- function(name, digits = 1) {
+    m <- k[[paste0(name, "_med")]]; lo <- k[[paste0(name, "_q25")]]; hi <- k[[paste0(name, "_q75")]]
+    ifelse(is.finite(m), minus(sprintf(paste0("%.", digits, "f [%.", digits, "f, %.", digits, "f]"), m, lo, hi)), "-")
+  }
+  knitr::kable(data.frame(
+    Maneuver = k$kind, `Events (rec.)` = sprintf("%d (%d)", k$n_events, k$n_recordings),
+    `Both states as expected` = sprintf("%.0f%%", 100 * k$frac_both_expected),
+    `$\\Delta x_p$ (SD)` = fmt("z_d_x_p"), `$\\Delta x_s$ (SD)` = fmt("z_d_x_s"),
+    `Onset $x_p$ (s)` = fmt("lat_p", 0), `Onset $x_s$ (s)` = fmt("lat_s", 0),
+    `$\\Delta$MAP (mmHg)` = fmt("d_map"), check.names = FALSE), align = "llrrrrrr")
+}
+```
+
+![Responses by type of maneuver. Rows: vagal-like state, sympathetic-like state (in baseline SDs), heart rate and MAP (changes); columns: one per kind of maneuver (slow tilt, rapid tilt and stand-up; a tilt that the annotations do not label appears as "tilt"). Line: median over events; bands: 25-75% and 10-90%.](figures/figS7_maneuvers.png){#fig-supp-maneuvers width=100%}
+
+```{r}
+#| label: tbl-prcp-contrasts
+#| tbl-cap: "Paired within-recording contrasts between kinds of maneuver in the PRCP recordings (exploratory)."
+#| echo: false
+if (!is.null(prcp) && !is.null(prcp$kind_contrasts) && nrow(prcp$kind_contrasts)) {
+  ct <- prcp$kind_contrasts
+  labels <- c(z_d_x_p = "Change of $x_p$ (SD)", z_d_x_s = "Change of $x_s$ (SD)", lat_p = "Onset of $x_p$ (s)", lat_s = "Onset of $x_s$ (s)")
+  knitr::kable(data.frame(Contrast = ct$contrast, Variable = labels[ct$variable], `Pairs` = ct$n_pairs, `Median difference` = sprintf("%.2f", ct$median_diff),
+                          `$p$` = ifelse(is.finite(ct$p), sprintf("%.3f", ct$p), "-"), `$p$ (BH)` = ifelse(is.finite(ct$p_BH), sprintf("%.3f", ct$p_BH), "-"), check.names = FALSE),
+               align = "llrrrr")
+}
+```
+
+# Respiration, blood-pressure and lagged-correlation estimators {#sec-covariate-methods}
+
+All series are beat-wise and are resampled to 4 Hz by natural cubic splines before spectral estimation. Spectra are estimated with a tapered (10%), detrended periodogram smoothed over about 0.01 Hz, and power is reported one-sided (twice R's two-sided density).
+
+*Respiratory frequency* is the frequency of the spectral maximum of the respiration signal between 0.10 and 0.50 Hz. *Respiratory-band SD and variance share* of a state are the square root and the fraction of the one-sided power of that state within the respiratory frequency $\pm 0.04$ Hz (relative to its total power). *Coherence* is the magnitude-squared coherence between the state and respiration averaged over the same band and weighted by the respiratory power in each frequency bin, so that bins without respiratory power, in which coherence is noise, do not dominate. Coherence does not depend on amplitude and cannot by itself distinguish a state that carries a respiratory oscillation from one that carries it at low amplitude.
+
+*Baroreflex alpha index.* With $P_{RR}$ and $P_{SBP}$ the spectra of the RR intervals (ms) and the systolic pressure (mmHg) and $\gamma^2$ their squared coherence, $\alpha_B = \overline{\sqrt{P_{RR}/P_{SBP}}}$ over the frequencies of band $B$ (LF 0.04–0.15 Hz; HF 0.15–0.40 Hz) at which $\gamma^2 \ge 0.5$ (ms/mmHg); it is undefined when no frequency in the band meets the criterion. In a numerical check in which RR was an 8 ms/mmHg gain of systolic pressure delayed by 2 s with added noise, the estimator returned the generating gain within 15%.
+
+*Lagged correlation.* Both series are placed on a 1-Hz grid and the centered 60-s moving mean is removed from each (the first and last 30 s are discarded). The cross-correlation is computed for lags of $\pm 30$ s, the peak absolute value and its lag are reported (a positive lag means that the second series lags the first), and a surrogate $p$-value is obtained from the peak absolute correlations of 200 circular shifts of the second series (shifts of at least 60 s), which preserve its autocorrelation. In a numerical check with a known 5-s delay, the lag was recovered and the surrogate $p$-value was below 0.05.
+
+# Secondary analyses of the perturbation {#sec-analysis-details}
+
+*Comparison with a CWT moving spectrum.* The temporal resolution of the reconstruction was compared with the continuous-wavelet-transform (CWT) moving band power of the heart rate (LF 0.04–0.15 Hz, HF 0.15–0.40 Hz, cone of influence masked), quantified as the time at which each series first leaves its baseline band (baseline mean $\pm 2$ SD, sustained for 5 s) relative to the tilt onset.
+
+*Arterial pressure.* For the recordings with arterial pressure, the same phase contrast (excluding the first 30 s after the onset) and step-response fit were applied to systolic, diastolic and mean arterial pressure (MAP) and to pulse pressure, as independently measured responses, and the temporal relation between each state and MAP was examined by the lagged correlation of the two detrended series, with a surrogate $p$-value from circular shifts of MAP that preserve its autocorrelation (section ["Respiration, blood-pressure and lagged-correlation estimators"](#sec-covariate-methods)).
+
+*Dose–response.* For recordings with several tilt levels, the mean of each state, of heart rate and of MAP over the second half of each plateau was related to the angle by the within-recording Spearman correlation (at least four levels).
+
+*Kinds of maneuver.* The pooled analyses use the tilts (slow and rapid together); because the original description of the dataset reports that the initial heart-rate increase of the rapid tilt and the stand-up is absent in the slow tilt [@heldt2003circulatory], the same quantities were also computed by kind of maneuver and compared within recordings (rapid versus slow tilts, and stand-ups versus tilts; Wilcoxon signed-rank test on recording medians, Benjamini–Hochberg across contrasts; exploratory), as reported in section ["Responses by type of maneuver (PRCP)"](#sec-prcp-kinds).
+
+*Results.* `r narrate_prcp(prcp, part = "supplement")` The comparison with the CWT moving spectrum is shown in @fig-supp-cwt.
+
+![Temporal resolution of the reconstruction relative to a CWT moving spectrum during the perturbation. (A) Median change of the sympathetic-like state (causal filter) and of the CWT LF band power around the tilt onset, in baseline SDs (bands: quartiles over recordings). (B) The same for the vagal-like state and the HF band power; the window required for frequency resolution spreads the CWT power around the transition. (C) Time of first departure from the baseline band, relative to the tilt onset, across recordings.](figures/fig4_benchmarking_comparison.png){#fig-supp-cwt width=100%}
+
+# Respiration and blood pressure in the Fantasia recordings {#sec-fantasia-physiology}
+
+*Methods.* For the subjects with a respiration signal, the dominant respiratory frequency (spectral peak between 0.10 and 0.50 Hz) was compared with the HF band (0.15–0.40 Hz), since the spectral anchor assumes that vagal modulation lies mainly in that band, and the respiratory coupling of each reconstructed state was quantified by the SD of the state within the respiratory band (respiratory frequency $\pm$ 0.04 Hz), its share of the total variance of the state in that band and the respiratory-power-weighted coherence with respiration; coherence is insensitive to amplitude, so the band SD and variance share are the primary measures, and the vagal-like and sympathetic-like states were compared within recordings (paired Wilcoxon test). For the subjects with blood pressure, mean systolic pressure, MAP and pulse pressure were summarized and baroreflex sensitivity was estimated by the alpha index in the LF and HF bands at frequencies where the squared coherence exceeds 0.5; these quantities were compared between groups with the same contrasts as in the main text and related to the latent summaries by Spearman correlations (pooled over groups, exploratory). Estimators are detailed in section ["Respiration, blood-pressure and lagged-correlation estimators"](#sec-covariate-methods). The stability of the representation was examined by refitting two non-overlapping windows of each recording (`r stability_window_text(config_used)`).
+
+*Results.* `r narrate_fantasia(fantasia, hrv, part = "supplement")` The respiration measures are shown in @fig-supp-resp.
+
+![Respiration in the Fantasia database (subjects with the signal; blood pressure is not available in these recordings). (A) SD of each reconstructed state within the respiratory band, paired within recordings. (B) Respiratory frequency by group, with the HF band shaded.](figures/fig10_fantasia_physiology.png){#fig-supp-resp width=100%}
+
+# Analysis pipeline and reproducibility {#sec-pipeline}
+
+All results can be regenerated from the CSV files with the accompanying R project. The data folders (`data/prcp`, `data/fantasia`, `data/tmst`) are set in `config.R` and the scripts in `analysis/` are run in the order of @tbl-pipeline (or with `Rscript tools/run_all.R`). The estimation engine (`engine/model_engine.R`) is used unmodified; the functions are in `R/`, in layers (`core`, `model`, `signals`, `steps`, `report`), and the scripts in `analysis/` only call them, so that each script reads as a short recipe (load, analyze every recording, combine, save). `R/model/model_variants.R` assembles the specifications $M_0$–$M_3$ from the engine's likelihood and prior terms, and an optional compiled port of the filter (`engine/fast_filter.cpp`) accelerates the multi-start analyses (its equivalence with the engine's filter is verified above). Random seeds are fixed in `config.R` and derived per recording. The figures are drawn from the saved results by `analysis/13_figures.R`; their appearance and the recordings showcased in the example figures are settings of `config.R` (section 6) and are recorded in `results/figure_info.rds`. The file `pipeline.R` of the project declares, for each script, the results it reads and writes (`docs/DATAFLOW.md` is generated from it), `Rscript tools/run_all.R --status` says which steps are up to date, and `results/provenance.txt` and `results/MANIFEST.csv` record the code version, the data and the checksum of every output of a run.
+
+| Script (`analysis/`) | Output (`results/`) | Manuscript content |
+| :--- | :--- | :--- |
+| `01_fit_all.R` | `fit_*.rds`, `df_population_summary.rds` | Fit and innovation diagnostics; time constants (Figure 3) |
+| `02_simulation_recovery.R` | `sim_recovery.rds` | Recovery under known truth (Figure S1) |
+| `03_identifiability.R` | `identifiability.rds` | Results 1–2 (Figure 2, Table 4) |
+| `04_sensitivity.R` | `sensitivity.rds` | Sensitivity, prior contrast (Figure S2) |
+| `05_prcp.R` | `prcp.rds` | Result 3: every tilt and stand-up of each recording (protocol annotations `data/prcp_events.csv` when present), pressure response, lagged correlation, dose-response, responses by type of maneuver (Figure 4; Figures S6–S8) |
+| `06_fantasia.R` | `fantasia.rds` | Result 4: group contrasts, stability, respiration and baroreflex (Figure 5; Figure S9) |
+| `07_recovery_benchmark.R` | `recovery_choice.rds` | Recovery definition (Figure S3) |
+| `08_event_detection_validation.R` | `event_detection.rds` | Event detection (Figure S5) |
+| `09_exercise.R` | `exercise.rds` | Result 5 (Figure 6; Figure S6) |
+| `10_hrv_comparators.R` | `hrv.rds` | HRV comparators |
+| `11_supplement_checks.R` | `supp_checks.rds` | Bound, calibration, equivalence checks (Figure S4) |
+| `12_preprocessing_checks.R` | `prep_checks.rds` | Data-preparation checks (earlier vs current format, cleaning gate) |
+| `13_figures.R` | `manuscript/figures/*.png` | All figures |
+
+: Analysis scripts and their outputs {#tbl-pipeline tbl-colwidths="[41,33,26]"}

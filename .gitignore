@@ -1,0 +1,35 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.DS_Store
+.venv
+tests/_run/
+poster
+results/*.rds
+manuscript/*.rds
+manuscript/figures
+manuscript/_site
+docs/SUBMISSION_AUDIT.md
+
+# Generated; rebuilt by `make run` / `make render` / `make submission`
+manuscript/*.typ
+!manuscript/typst-*.typ
+manuscript/manuscript.tex
+manuscript/supplementary.tex
+manuscript/site_libs
+manuscript/*.rds
+.quarto
+submission/
+/data/
+results/*
+!results/MANIFEST.csv
+!results/provenance.txt
+!results/sessionInfo.txt
+
+# Public datasets: `make download` fetches them from PhysioNet (checksum-verified). The exercise cohort, data-raw/tmst/, stays in the repository
+data-raw/fantasia/*
+data-raw/prcp/*
+!data-raw/fantasia/.gitignore
+!data-raw/prcp/SHA256SUMS.txt
+.Renviron

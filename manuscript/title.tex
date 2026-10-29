@@ -1,0 +1,19 @@
+% Title block following the journal's title-page rules: given and family names, lowercase superscript letters for
+% affiliations (full address, with country), the corresponding author marked with * and the e-mail address.
+% The affiliations sit in a parbox so that long addresses wrap inside the text width.
+\newcounter{affcount}
+\newcommand{\afflabel}[1]{\setcounter{affcount}{#1}\alph{affcount}}
+\title{$title$}
+\author{%
+$for(by-author)$
+$it.name.literal$\textsuperscript{$for(it.affiliations)$\afflabel{$it.number$}$sep$,$endfor$$if(it.attributes.corresponding)$,*$endif$}$sep$\and
+$endfor$
+\\[2ex]
+\parbox{0.92\textwidth}{\centering\normalsize
+$for(by-affiliation)$
+\textsuperscript{\afflabel{$it.number$}}$if(it.department)$$it.department$, $endif$$it.name$$if(it.address)$, $it.address$$endif$$if(it.postal-code)$, $it.postal-code$$endif$$if(it.city)$, $it.city$$endif$$if(it.country)$, $it.country$$endif$\\[0.5ex]
+$endfor$
+$for(by-author)$$if(it.attributes.corresponding)$
+\textsuperscript{*}Corresponding author: $it.name.literal$, $it.email$
+$endif$$endfor$}}
+\date{}
