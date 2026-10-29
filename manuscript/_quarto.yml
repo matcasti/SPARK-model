@@ -44,6 +44,7 @@ format:
       - templates/typst-show.typ
 
 bibliography: support/citations.bib
+csl: support/elsevier-vancouver.csl
 number-sections: true
 date: today
 author:

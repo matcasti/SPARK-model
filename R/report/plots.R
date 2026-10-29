@@ -97,7 +97,7 @@ perturbation_intervals <- function(series, kind) {
 #' MAP and tilt angle. The perturbation is shaded; tilts are numbered above the drives.
 #' @param kind "tilt" or "exercise"
 series_stack <- function(series, kind, cfg, title = NULL, subtitle = NULL) {
-  panel_names <- c("Latent drives (Hz)", "HR (bpm)", "MAP (mmHg)", "Tilt angle (\u00b0)")
+  panel_names <- c("Drives (Hz)", "HR (bpm)", "MAP\n(mmHg)", "Tilt angle\n(\u00b0)")
   band <- function(variance) if (is.null(variance)) 0 else 1.96 * sqrt(variance)
   states <- rbind(
     data.table(t = series$t, state = "x_p", v = series$x_p, lo = series$x_p - band(series$vp), hi = series$x_p + band(series$vp)),
@@ -185,8 +185,8 @@ event_locked <- function(series_list, kind = c("tilt", "exercise"), window_s = c
   rbindlist(events)
 }
 
-locked_labels <- function(reference = "baseline") tex_named(c(x_p = paste0("$x_p$ (", reference, " SD)"), x_s = paste0("$x_s$ (", reference, " SD)"), hr = "$\\Delta$HR (bpm)",
-                                         map = "$\\Delta$MAP (mmHg)", LF = "LF power (SD)", HF = "HF power (SD)"))
+locked_labels <- function(reference = "baseline") tex_named(c(x_p = paste0("$x_p$\n(", reference, " SD)"), x_s = paste0("$x_s$\n(", reference, " SD)"), hr = "$\\Delta$HR\n(bpm)",
+                                         map = "$\\Delta$MAP\n(mmHg)", LF = "LF power\n(SD)", HF = "HF power\n(SD)"))
 
 #' Median and interquartile band over recordings of event-locked curves, individual recordings in grey.
 #' @param variables which variables to show, in order; @param alignment label of time zero

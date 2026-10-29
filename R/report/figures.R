@@ -92,16 +92,16 @@ figure_fit_diagnostics <- function(results, cfg) {
     geom_text(data = medians, aes(label = sprintf("%.1f", RMSE_ms)), colour = "grey20", vjust = -0.9, hjust = -0.35, size = 3) +
     scale_fill_manual(values = colours, guide = "none") + scale_colour_manual(values = colours, guide = "none") +
     scale_y_continuous(expand = expansion(mult = c(0.02, 0.1))) +
-    labs(x = NULL, y = "RMSE of filtered RR (ms)", title = "Tracking error", subtitle = "in-sample, per recording; numbers: median") + theme_spark(cfg)
+    labs(x = NULL, y = "RMSE of filtered RR (ms)", title = "Tracking error", subtitle = "numbers: median") + theme_spark(cfg)
   b <- ggplot(pacf_by_dataset, aes(lag, mean, colour = Dataset)) +
     geom_ribbon(aes(ymin = -bound, ymax = bound, fill = Dataset), alpha = 0.08, colour = NA) +
     geom_hline(yintercept = 0, linewidth = 0.3) + geom_line(linewidth = 0.6) +
     scale_colour_manual(values = colours, name = NULL) + scale_fill_manual(values = colours, guide = "none") +
-    labs(x = "Lag (beats)", y = "Mean PACF of innovations", title = "Serial dependence", subtitle = "bands: approximate white-noise bounds") + theme_spark(cfg)
+    labs(x = "Lag (beats)", y = "Mean PACF of innovations", title = "Serial dependence", subtitle = "bands: white-noise bounds") + theme_spark(cfg)
   c <- ggplot(population, aes(crit, KS_Stat, colour = Dataset)) +
     geom_abline(slope = 1, linetype = 2, linewidth = 0.4, colour = "grey40") + geom_point(size = 1.8, alpha = 0.85) +
     scale_colour_manual(values = colours, guide = "none") +
-    labs(x = tex("Critical value $1.36/\\sqrt{N}$"), y = tex("KS distance $D$"), title = "Time-rescaling distance", subtitle = tex("below the dashed line: $D$ under its critical value")) + theme_spark(cfg)
+    labs(x = tex("Critical value $1.36/\\sqrt{N}$"), y = tex("KS distance $D$"), title = "Time-rescaling distance", subtitle = tex("below line: $D$ < critical value")) + theme_spark(cfg)
 
   taus <- melt(population[, .(Dataset, SubjectID, `x_p` = Tau_P, `x_s` = Tau_S)], id.vars = c("Dataset", "SubjectID"))
   prior_bands <- data.table(variable = factor(c("x_p", "x_s")), lo = c(priors$tau_p_bounds[1], priors$tau_s_bounds[1]),
@@ -111,7 +111,7 @@ figure_fit_diagnostics <- function(results, cfg) {
     geom_jitter(aes(colour = Dataset), width = 0.12, height = 0, size = 1.8, alpha = 0.85) +
     stat_summary(fun = median, geom = "crossbar", width = 0.6, linewidth = 0.35, colour = "black") +
     scale_y_log10(labels = log_labels) + scale_colour_manual(values = colours, guide = "none") +
-    labs(x = NULL, y = tex("$\\tau = 1/\\kappa$ (s)"), title = "Estimated time constants", subtitle = "grey: 95% prior interval; bar: median") + theme_spark(cfg)
+    labs(x = NULL, y = tex("$\\tau = 1/\\kappa$ (s)"), title = "Estimated time constants", subtitle = "grey: prior; bar: median") + theme_spark(cfg)
   plot <- (figure_grid(list(a, b, c, d), ncol = 2)) + plot_layout(guides = "collect") & theme(legend.position = "bottom")
   list(plot = plot, width = 9, height = 7.6, info = list())
 }
@@ -138,7 +138,7 @@ figure_identifiability <- function(results, cfg) {
   datasets <- figure_palette(cfg, "datasets")
   priors <- spark_priors()
   tolerance <- cfg$identifiability$ll_tol
-  short_labels <- tex_named(c(M0 = "$M_0$: RR only", M3 = "$M_3$: RR + physiological information"))
+  short_labels <- tex_named(c(M0 = "$M_0$: RR only", M3 = "$M_3$: RR + physiological\ninformation"))
 
   # ---- A: where the best fit puts the variability (one value per recording) -----------------------------------------------------
   collapse_share <- cfg$identifiability$collapse_share
@@ -160,8 +160,8 @@ figure_identifiability <- function(results, cfg) {
       dataset_fill + scale_y_continuous(breaks = function(x) { b <- pretty(x, n = 4); b[b %% 1 == 0] }, expand = expansion(mult = c(0, 0.05))) + guides(fill = guide_legend()) +
       labs(x = tex(xlab), y = "Recordings", title = title, subtitle = tex(subtitle)) + theme_spark(cfg)
   }
-  a1 <- histogram("best", "Share of $x_p$ variance at the best fit (0: all in $x_s$; 1: all in $x_p$)", "Where the best fit puts the variability",
-                  sprintf("a share below %s or above %s means that one process absorbs all variability\nat the best fit: $M_0$ in %s of recordings, $M_3$ in %s (the text gives the share of all fits)", collapse_share[1], collapse_share[2], percent_of("M0", quote(collapsed)), percent_of("M3", quote(collapsed))))
+  a1 <- histogram("best", "Share of $x_p$ variance at the best fit (0: all in $x_s$; 1: all in $x_p$)", "Variance split at the best fit",
+                  sprintf("one process takes all (< %s or > %s):\n$M_0$ %s of recordings, $M_3$ %s", collapse_share[1], collapse_share[2], percent_of("M0", quote(collapsed)), percent_of("M3", quote(collapsed))))
 
   # ---- B: profile of the objective with the end points of the starts (one recording) -------------------------------------------
   surface <- ident$surfaces[spec %in% c("M0", "M3")]
@@ -185,8 +185,8 @@ figure_identifiability <- function(results, cfg) {
       scale_y_log10(breaks = c(1, 3, 10, 30), labels = log_labels) +
       scale_fill_brewer(palette = "Blues", direction = -1, name = tex("$\\Delta$ objective")) +
       scale_shape_manual(values = c(`FALSE` = 16, `TRUE` = 17), labels = c(`FALSE` = "end point of a start", `TRUE` = "beyond the plotted range (at the edge)"), name = NULL) +
-      labs(x = tex("$\\tau_s$ (s)"), y = tex("$\\tau_p$ (s)"), title = "Profile of the objective, one recording",
-           subtitle = "shading: loss in objective (other parameters re-optimized); dashed box: prior interval") +
+      labs(x = tex("$\\tau_s$ (s)"), y = tex("$\\tau_p$ (s)"), title = "Profile of the objective",
+           subtitle = "one recording; dashed box: prior") +
       theme_spark(cfg) + theme(legend.box = "vertical", legend.spacing.y = unit(0.05, "cm"))
   }
 
@@ -199,11 +199,11 @@ figure_identifiability <- function(results, cfg) {
       geom_line(linewidth = 0.3, alpha = 0.6) + facet_grid(spec ~ ., labeller = labeller(spec = setNames(tex(c("$M_0$", "$M_3$")), short_labels))) +
       scale_colour_manual(values = setNames(unname(models[c("M0", "M3")]), short_labels), guide = "none") +
       labs(x = "Time (s)", y = tex("$x_p$ (Hz)"), title = tex("Reconstructed $x_p$, same recording"),
-           subtitle = "every start within the likelihood tolerance of the best start") + theme_spark(cfg)
+           subtitle = "all starts within the likelihood tolerance") + theme_spark(cfg)
   }
   upper <- if (!is.null(b)) (tag_panel(a1, "A") | tag_panel(b, "B")) + plot_layout(widths = c(1, 1.1)) else tag_panel(a1, "A")
   plot <- if (is.null(c)) upper else (upper / tag_panel(c, "C")) + plot_layout(heights = c(1.15, 0.8))
-  list(plot = plot, width = 12, height = 9.6, info = list())
+  list(plot = plot, width = 9, height = 8, info = list())
 }
 
 # ---- Figure 7: orthostatic perturbation --------------------------------------------------------------------------------------
@@ -220,7 +220,7 @@ prcp_amplitude_panel <- function(prcp, cfg) {
     plot <- plot + geom_text(data = per_recording, aes(z_d_x_p, z_d_x_s, label = SubjectID), size = 2.7, hjust = -0.25, colour = "grey30")
   }
   plot + labs(x = tex("$\\Delta x_p$ (baseline SD)"), y = tex("$\\Delta x_s$ (baseline SD)"), title = "Response amplitude",
-              subtitle = tex("large: recording median; small: each tilt\nshaded: expected direction")) + theme_spark(cfg)
+              subtitle = "large: recording median") + theme_spark(cfg)
 }
 
 #' Onset latency and step-response time constant of x_p, x_s and MAP across recordings (open: at a search bound).
@@ -256,7 +256,7 @@ prcp_lag_panel <- function(prcp, cfg) {
     scale_colour_manual(values = c(x_p = states[["x_p"]], x_s = states[["x_s"]]), guide = "none") +
     scale_fill_manual(values = c(x_p = states[["x_p"]], x_s = states[["x_s"]]), na.value = "white", guide = "none") +
     labs(x = "Lag of MAP behind the state (s)", y = "Peak detrended correlation", title = "State-MAP coupling",
-         subtitle = tex("blue: $x_p$, red: $x_s$\nfilled: surrogate $p < 0.05$")) + theme_spark(cfg)
+         subtitle = tex("blue: $x_p$; red: $x_s$")) + theme_spark(cfg)
 }
 
 #' Mean state, HR and MAP by tilt-angle plateau, standardized (recordings with several levels).
@@ -266,7 +266,7 @@ prcp_dose_panel <- function(prcp, cfg) {
   dose[, z := (value - mean(value, na.rm = TRUE)) / sd(value, na.rm = TRUE), by = variable]
   ggplot(dose, aes(level, z, colour = variable)) + geom_line(linewidth = 0.8) + geom_point(size = 2) +
     scale_colour_manual(values = c(x_p = states[["x_p"]], x_s = states[["x_s"]], hr = "#444444", map = "#6B6B6B"), name = NULL) +
-    labs(x = "Tilt angle (deg)", y = "Standardized mean", title = "Dose-response", subtitle = tex("mean over each angle plateau\nblue $x_p$, red $x_s$, black HR, grey MAP")) + theme_spark(cfg) + theme(legend.position = "none")
+    labs(x = "Tilt angle (deg)", y = "Standardized mean", title = "Dose-response", subtitle = "mean over each plateau") + theme_spark(cfg) + theme(legend.position = "none")
 }
 
 figure_prcp_group <- function(results, cfg) {
@@ -283,17 +283,16 @@ figure_prcp_group <- function(results, cfg) {
     if (nrow(k) > 1) paste0(" (", paste(k$n_events, k$kind, collapse = ", "), ")") else ""
   }
   a <- series_stack(example$series, "tilt", cfg, title = "One recording",
-                    subtitle = paste0("recording ", example$id, " (", example$rule, "); each tilt shaded and numbered",
-                                      if (has_stand) "; stand-ups in green (S)" else ""))
+                    subtitle = paste0("recording ", example$id))
   b <- plot_event_locked(locked, cfg, variables, "tilt onset", title = "Average response to a tilt",
-                         subtitle = tex(sprintf("%s, %d tilts%s;\nline: median, band: quartiles, grey: recordings", n_label(uniqueN(locked$id)), n_tilts, kinds_text)))
+                         subtitle = sprintf("%s, %d tilts", n_label(uniqueN(locked$id)), n_tilts))
 
   wide <- dcast(locked[variable %in% c("x_p", "x_s")], id + u ~ variable, value.var = "value")[is.finite(x_p) & is.finite(x_s)]
   wide[, phase := factor(ifelse(u < 0, "baseline", "tilt"), c("baseline", "tilt"))]
   paths <- wide[, .(id, u = x_p, v = x_s, phase)]
   central <- wide[, .(u = median(x_p), v = median(x_s), phase = phase[1]), by = .(time = u)][order(time)][, !"time"]
   c <- plot_state_plane(paths, cfg, central, title = "Path in the state plane",
-                        subtitle = tex("blue: before the onset, orange: during\nthin: recordings; bold: median"), legend = FALSE)
+                        subtitle = "blue: before; orange: during", legend = FALSE)
   timing <- prcp_timing_panels(prcp, cfg)
   bottom <- list(c, prcp_amplitude_panel(prcp, cfg), timing$latency, timing$tau)
   if (!is.null(prcp$xcorr) && nrow(prcp$xcorr)) bottom[[length(bottom) + 1]] <- prcp_lag_panel(prcp, cfg)
@@ -301,7 +300,7 @@ figure_prcp_group <- function(results, cfg) {
   letters <- LETTERS[seq_len(length(bottom) + 2)]
   top <- (tag_panel(a, letters[1]) | tag_panel(b, letters[2])) + plot_layout(widths = c(1.7, 1))
   lower <- wrap_plots(mapply(tag_panel, bottom, letters[-(1:2)], SIMPLIFY = FALSE), ncol = 3)             # three per row: legible at the journal width
-  list(plot = top / lower + plot_layout(heights = c(1.5, 1.25 * ceiling(length(bottom) / 3))), width = 12, height = 7.5 + 3.6 * ceiling(length(bottom) / 3),
+  list(plot = top / lower + plot_layout(heights = c(2.2, 1.25 * ceiling(length(bottom) / 3))), width = 9, height = 6 + 2.8 * ceiling(length(bottom) / 3),
        info = list(prcp = example$id, prcp_rule = example$rule))
 }
 
@@ -323,10 +322,10 @@ figure_cwt_comparison <- function(results, cfg) {
       geom_ribbon(aes(ymin = q1, ymax = q3), alpha = 0.15, colour = NA) + geom_line(linewidth = 0.8) +
       scale_colour_manual(values = kind_colours, name = NULL) + scale_fill_manual(values = kind_colours, name = NULL) +
       labs(x = "Time from tilt onset (s)", y = "Change from baseline (SD)", title = title,
-           subtitle = "median and quartiles over recordings") + theme_spark(cfg)
+           subtitle = "median and quartiles") + theme_spark(cfg)
   }
-  a <- pair("x_s", "LF", states[["x_s"]], tex("Sympathetic-like state $x_s$ vs LF power"))
-  b <- pair("x_p", "HF", states[["x_p"]], tex("Vagal-like state $x_p$ vs HF power"))
+  a <- pair("x_s", "LF", states[["x_s"]], tex("$x_s$ vs LF power"))
+  b <- pair("x_p", "HF", states[["x_p"]], tex("$x_p$ vs HF power"))
   departures <- melt(prcp$lead[, .(SubjectID, `x_s` = lead_x_s, `LF power` = lead_LF, `x_p` = lead_x_p, `HF power` = lead_HF)], id.vars = "SubjectID")
   departures[, kind := factor(ifelse(grepl("power", variable), names(kind_colours)[2], names(kind_colours)[1]), names(kind_colours))]
   c <- ggplot(departures[is.finite(value)], aes(variable, value, colour = kind)) +
@@ -335,9 +334,9 @@ figure_cwt_comparison <- function(results, cfg) {
     scale_colour_manual(values = kind_colours, guide = "none") +
     scale_x_discrete(labels = tex_named(c(x_s = "$x_s$", `LF power` = "LF power", x_p = "$x_p$", `HF power` = "HF power"))) +
     labs(x = NULL, y = "First departure from baseline (s)", title = "Timing of the departure",
-         subtitle = paste0(n_label(uniqueN(departures$SubjectID)), "; 0 = tilt onset; negative: before it")) + theme_spark(cfg)
+         subtitle = n_label(uniqueN(departures$SubjectID))) + theme_spark(cfg)
   plot <- (figure_grid(list(a, b, c), ncol = 3, widths = c(1, 1, 0.8))) + plot_layout(guides = "collect") & theme(legend.position = "bottom")
-  list(plot = plot, width = 14, height = 4.6, info = list())
+  list(plot = plot, width = 9, height = 5, info = list())
 }
 
 
@@ -362,16 +361,16 @@ figure_fantasia_groups <- function(results, cfg) {
     geom_vline(xintercept = 0, linetype = 2, linewidth = 0.3) + geom_pointrange(aes(xmin = cliff_lo, xmax = cliff_hi), size = 0.4) +
     scale_colour_manual(values = families, name = NULL) + coord_cartesian(xlim = c(-1, 1)) + scale_y_discrete(labels = sym) +
     labs(x = tex("Cliff's $\\delta$, older vs young (95% bootstrap CI)"), y = NULL, title = "Group contrasts",
-         subtitle = "latent summaries and conventional HRV on one scale") + theme_spark(cfg)
+         subtitle = "latent and HRV summaries") + theme_spark(cfg)
   c <- if (!is.null(fantasia$stability)) {
     ggplot(fantasia$stability, aes(icc_log, reorder(variable, icc_log), fill = family)) + geom_col(width = 0.7) +
       scale_fill_manual(values = families, guide = "none") + coord_cartesian(xlim = c(min(0, fantasia$stability$icc_log, na.rm = TRUE), 1)) +
       scale_y_discrete(labels = sym) +
       labs(x = "Test-retest ICC(3,1) of the log values", y = NULL, title = "Stability across two windows",
-           subtitle = "1 = identical ranking of recordings in both windows") + theme_spark(cfg)
+           subtitle = "1 = identical ranking") + theme_spark(cfg)
   }
   lower <- if (is.null(c)) tag_panel(b, "B") else (tag_panel(b, "B") | tag_panel(c, "C")) + plot_layout(guides = "collect") & theme(legend.position = "bottom")
-  list(plot = tag_panel(a, "A") / lower + plot_layout(heights = c(1, 1.25)), width = 13, height = 8, info = list())
+  list(plot = tag_panel(a, "A") / lower + plot_layout(heights = c(1, 1.25)), width = 9, height = 7.4, info = list())
 }
 
 
@@ -391,22 +390,22 @@ figure_exercise <- function(results, cfg) {
   states <- figure_palette(cfg, "states")
 
   a <- series_stack(example$series, "exercise", cfg, title = "One recording",
-                    subtitle = paste0("recording ", example$id, " (", example$rule, "); exercise shaded"))
-  b <- plot_event_locked(locked, cfg, intersect(c("x_p", "x_s", "hr"), unique(locked$variable)), "end of exercise", reference = "rest", title = "Recovery after the end of exercise",
-                         subtitle = tex(sprintf("%s; line: median; bands: 25-75%% and 10-90%% of recordings;\nthin line: the recording in A; 0 = end of exercise", n_label(uniqueN(locked$id)))), highlight = example$id)
+                    subtitle = paste0("recording ", example$id))
+  b <- plot_event_locked(locked, cfg, intersect(c("x_p", "x_s", "hr"), unique(locked$variable)), "end of exercise", reference = "rest", title = "Recovery after exercise",
+                         subtitle = n_label(uniqueN(locked$id)), highlight = example$id)
   c <- ggplot(recovery, aes(state_label, y, colour = state_label)) +
     geom_jitter(aes(shape = censored), width = 0.12, height = 0, size = 2.2) +
     geom_errorbar(data = km_medians, aes(ymin = y, ymax = y), width = 0.5, linewidth = 0.8, colour = "black") +
     scale_colour_manual(values = c(x_p = states[["x_p"]], x_s = states[["x_s"]]), guide = "none") +
     scale_x_discrete(labels = tex_named(c(x_p = "$x_p$", x_s = "$x_s$"))) +
     scale_shape_manual(values = c(`FALSE` = 16, `TRUE` = 1), labels = c("recovered", "censored at recording end"), name = NULL) +
-    labs(x = NULL, y = paste0("Recovery time (s): ", words_for(as.character(exercise$summary$recovery_definition), RECOVERY_DEFINITION_TEXT)), title = "Recovery time",
-         subtitle = "black bar: Kaplan-Meier median") + theme_spark(cfg)
-  d <- plot_state_plane(paths, cfg, NULL, reference = "rest", title = "Path in the state plane, by phase", highlight = example$id,
-                        subtitle = tex(paste0(n_label(uniqueN(paths$id)), "; each panel has its own scale; shading: density of the points; ellipses: 50% (solid) and\n90% (dashed); arrow: median path through the phase (open circle: start); thin line: the recording in A")))
+    labs(x = NULL, y = tex(paste0("Recovery time (s):\n", words_for(as.character(exercise$summary$recovery_definition), RECOVERY_DEFINITION_TEXT))), title = "Recovery time",
+         subtitle = "bar: Kaplan-Meier median") + theme_spark(cfg)
+  d <- plot_state_plane(paths, cfg, NULL, reference = "rest", title = "State-plane path, by phase", highlight = example$id,
+                        subtitle = paste0(n_label(uniqueN(paths$id)), "; each panel has its own scale"))
   top <- (tag_panel(a, "A") | tag_panel(b, "B")) + plot_layout(widths = c(1.4, 1))
   lower <- (tag_panel(c, "C") | tag_panel(d, "D")) + plot_layout(widths = c(0.75, 1.9))
-  list(plot = top / lower + plot_layout(heights = c(1.5, 1)), width = 12.5, height = 11,
+  list(plot = top / lower + plot_layout(heights = c(1.5, 1)), width = 9, height = 9.4,
        info = list(exercise = example$id, exercise_rule = example$rule))
 }
 
@@ -429,14 +428,14 @@ figure_fantasia_physiology <- function(results, cfg) {
     panels$a <- ggplot(band_sd, aes(variable, value)) + geom_line(aes(group = SubjectID), colour = "grey75") +
       scale_x_discrete(labels = tex_named(c(x_p = "$x_p$", x_s = "$x_s$"))) +
       geom_point(aes(colour = Group), size = 2.2) + scale_colour_manual(values = groups, name = NULL) + scale_y_log10(labels = log_labels) +
-      labs(x = NULL, y = "SD within the respiratory band (Hz)", title = "Respiratory-band content of the states",
-           subtitle = paste0("paired within recording, ", n_label(nrow(with_resp)))) + theme_spark(cfg)
+      labs(x = NULL, y = "SD within the respiratory band (Hz)", title = "Respiratory-band SD",
+           subtitle = n_label(nrow(with_resp))) + theme_spark(cfg)
     panels$b <- ggplot(physiology[is.finite(f_resp)], aes(Group, f_resp, colour = Group, fill = Group)) +
       annotate("rect", xmin = -Inf, xmax = Inf, ymin = cfg$hrv$hf[1], ymax = cfg$hrv$hf[2], fill = "grey70", alpha = 0.25) +
       box_points(aes(colour = Group, fill = Group), size = 1.8) +
       scale_colour_manual(values = groups, guide = "none") + scale_fill_manual(values = groups, guide = "none") +
       coord_cartesian(ylim = cfg$physio$resp_band) +
-      labs(x = NULL, y = "Respiratory frequency (Hz)", title = "Respiration vs the HF band", subtitle = "grey band: 0.15-0.40 Hz") + theme_spark(cfg)
+      labs(x = NULL, y = "Respiratory frequency (Hz)", title = "Respiration vs HF band", subtitle = "grey: 0.15-0.40 Hz") + theme_spark(cfg)
   }
   with_bp <- physiology[is.finite(alpha_LF)]
   if (nrow(with_bp)) {
@@ -447,7 +446,7 @@ figure_fantasia_physiology <- function(results, cfg) {
       labs(x = tex("SD of $x_p$ (Hz)"), y = tex("Baroreflex $\\alpha$, LF (ms/mmHg)"), title = "Latent state vs baroreflex", subtitle = "one point per recording") + theme_spark(cfg)
   }
   if (!length(panels)) stop("no respiration or blood-pressure data", call. = FALSE)
-  list(plot = figure_grid(unname(panels), ncol = 2) + plot_layout(guides = "collect") & theme(legend.position = "bottom"), width = 10, height = 8, info = list())
+  list(plot = figure_grid(unname(panels), ncol = 2) + plot_layout(guides = "collect") & theme(legend.position = "bottom"), width = 9, height = 7.6, info = list())
 }
 
 
@@ -462,28 +461,29 @@ figure_event_detection <- function(results, cfg) {
     ggplot(real, aes(variable, value)) + geom_hline(yintercept = 0, linetype = 2, linewidth = 0.3) +
       geom_boxplot(outlier.shape = NA, linewidth = 0.35, fill = NA, width = 0.5, colour = colour) +
       geom_jitter(width = 0.1, height = 0, size = 1.6, alpha = 0.7, colour = colour) +
-      labs(x = NULL, y = "Heart-rate event minus reference event (s)", title = "Real recordings with a tilt angle or annotations",
-           subtitle = sprintf("%d of %d maneuvers matched; %d heart-rate events matched no maneuver", nrow(validation), nrow(prcp$validation), prcp$summary$val_n_extra)) +
+      labs(x = NULL, y = "Detected minus reference (s)", title = "Real recordings",
+           subtitle = sprintf("%d of %d maneuvers matched", nrow(validation), nrow(prcp$validation))) +
       theme_spark(cfg)
   }
   parts <- list(`Tilt onset\n(one tilt)` = detection$tilt$onset_err, `Tilt onset\n(repeated)` = detection$repeated$onset_err,
-                `Exercise onset\n(profile)` = detection$exercise$onset_err_profile, `Exercise end\n(peak)` = detection$exercise$end_err_peak,
-                `Exercise end\n(change point)` = detection$exercise$end_err_cp, `Exercise end\n(profile)` = detection$exercise$end_err_profile)
+                `Exercise\nonset\n(profile)` = detection$exercise$onset_err_profile, `Exercise\nend\n(peak)` = detection$exercise$end_err_peak,
+                `Exercise\nend\n(change\npoint)` = detection$exercise$end_err_cp, `Exercise\nend\n(profile)` = detection$exercise$end_err_profile)
   simulated <- rbindlist(lapply(names(parts), function(n) data.table(measure = n, error = parts[[n]])))[is.finite(error)]
   simulated[, measure := factor(measure, names(parts))]
   b <- ggplot(simulated, aes(measure, error)) + geom_hline(yintercept = 0, linetype = 2, linewidth = 0.3) + scale_x_discrete(labels = tex) +
     geom_boxplot(outlier.size = 0.7, linewidth = 0.35, fill = "grey93") +
     labs(x = NULL, y = "Detected minus true time (s)", title = "Simulations with known timing",
-         subtitle = sprintf("repeated tilts: %.0f%% found, %.1f extra events per recording", 100 * detection$summary$repeated_recall, detection$summary$repeated_extra)) +
-    theme_spark(cfg) + theme(axis.text.x = element_markdown(size = cfg$figures$base_size - 2))
+         subtitle = sprintf("repeated tilts: %.0f%% found", 100 * detection$summary$repeated_recall)) +
+    theme_spark(cfg)
   rates <- melt(detection$false_detection[, .(min_shift_hz, `false detections (stationary)` = false_detection_rate, `detected tilts` = detection_rate)],
                 id.vars = "min_shift_hz")
   c <- ggplot(rates, aes(min_shift_hz, value, colour = variable)) + geom_vline(xintercept = cfg$segmentation$min_shift_hz, linetype = 2, linewidth = 0.3, colour = "grey40") +
     geom_line(linewidth = 0.7) + geom_point(size = 2) + scale_y_continuous(limits = c(0, 1)) +
     scale_colour_manual(values = c(`false detections (stationary)` = "#C0392B", `detected tilts` = "#2A6EBB"), name = NULL) +
     labs(x = "Minimum shift between segments (Hz)", y = "Share of simulated recordings", title = "Choice of the minimum shift",
-         subtitle = "dashed: value used") + theme_spark(cfg) + guides(colour = guide_legend(nrow = 2))
-  list(plot = figure_grid(list(a, b, c), ncol = 3, widths = c(0.8, 1.5, 1)), width = 14, height = 4.8, info = list())
+         subtitle = "dashed: value used") + theme_spark(cfg) + guides(colour = guide_legend(nrow = 1))
+  list(plot = wrap_plots(mapply(tag_panel, Filter(Negate(is.null), list(a, b, c)), LETTERS[1:3], SIMPLIFY = FALSE),
+                         design = "AB\nCC", widths = c(1, 2.1), heights = c(1.6, 1)), width = 9, height = 7.4, info = list())
 }
 
 
@@ -508,15 +508,13 @@ figure_landscapes <- function(results, cfg) {
   tilt <- landscape_row(results, "tilt", cfg)
   exercise <- landscape_row(results, "exercise", cfg)
   style <- cfg$figures$landscape
-  encoding <- paste0("Dark = basin (high occupancy)", if (isTRUE(style$show_flow)) ", arrows = mean flow of the states" else "",
-                     if (isTRUE(style$show_basins)) ", rings = basins" else "", ".")
   plot <- wrap_plots(c(tilt$panels, exercise$panels), ncol = 3, guides = "collect") +
     plot_annotation(title = "Where the reconstructed states spend their time",
-                    subtitle = paste("Top: orthostatic perturbation. Bottom: exercise.", encoding, "Units: each recording's baseline SD."),
+                    subtitle = "Top: orthostatic perturbation. Bottom: exercise. Units: baseline SD.",
                     theme = theme(plot.title = element_text(face = "bold", size = cfg$figures$base_size + 2),
                                   plot.subtitle = element_text(colour = "grey35", size = cfg$figures$base_size - 1))) &
     theme(legend.position = "bottom")
-  list(plot = plot, width = 11, height = 8.4, info = list())
+  list(plot = plot, width = 9, height = 8, info = list())
 }
 
 
@@ -535,9 +533,9 @@ figure_simulation_recovery <- function(results, cfg) {
     geom_boxplot(outlier.size = 0.8, linewidth = 0.35, alpha = 0.25) + facet_grid(variable ~ scenario, scales = "free_y") +
     scale_fill_manual(values = models, guide = "none") + scale_colour_manual(values = models, guide = "none") +
     scale_x_discrete(labels = function(x) tex(spec_tex(x))) +
-    labs(x = NULL, y = NULL, title = "Recovery of the generating values under known truth",
-         subtitle = "dashed line: no error. Scenarios differ in the true time scales and variance partition") + theme_spark(cfg)
-  list(plot = plot, width = 10, height = 8.5, info = list())
+    labs(x = NULL, y = NULL, title = "Recovery under known truth",
+         subtitle = "dashed line: no error") + theme_spark(cfg)
+  list(plot = plot, width = 9, height = 8, info = list())
 }
 
 figure_sensitivity <- function(results, cfg) {
@@ -550,12 +548,12 @@ figure_sensitivity <- function(results, cfg) {
     ggplot(worst_case, aes(setting, .data[[column]])) + geom_boxplot(outlier.size = 0.8, linewidth = 0.35, fill = "grey93") +
       coord_flip() + facet_grid(kind ~ ., scales = "free_y", space = "free_y")
   }
-  a <- horizontal_boxes("ln_tau") + labs(x = NULL, y = tex("Largest $|\\ln(\\mathrm{estimate}/\\mathrm{reference})|$ of $\\tau_p$, $\\tau_s$"),
-                                          title = "Change of the time constants", subtitle = tex("reference: $M_3$")) + theme_spark(cfg)
-  b <- horizontal_boxes("cor") + labs(x = NULL, y = tex("Lowest correlation of $x_p$, $x_s$ with the reference"),
-                                       title = "Change of the reconstructed states", subtitle = "1 = identical trajectories") +
-    theme_spark(cfg) + theme(axis.text.y = element_blank())
-  list(plot = (tag_panel(a, "A") | tag_panel(b, "B")) + plot_layout(widths = c(1.3, 1)), width = 12, height = 8.5, info = list())
+  a <- horizontal_boxes("ln_tau") + labs(x = NULL, y = tex("Largest $|\\ln(\\mathrm{estimate}/\\mathrm{reference})|$\nof $\\tau_p$, $\\tau_s$"),
+                                          title = tex("Change of the\ntime constants"), subtitle = tex("reference: $M_3$")) + theme_spark(cfg)
+  b <- horizontal_boxes("cor") + labs(x = NULL, y = tex("Lowest correlation of $x_p$, $x_s$\nwith the reference"),
+                                       title = tex("Change of the\nreconstructed states"), subtitle = "1 = identical trajectories") +
+    scale_x_discrete(labels = NULL) + theme_spark(cfg) + theme(axis.text.y = element_blank())
+  list(plot = (tag_panel(a, "A") | tag_panel(b, "B")) + plot_layout(widths = c(1.9, 1)), width = 9, height = 8, info = list())
 }
 
 figure_recovery_benchmark <- function(results, cfg) {
@@ -569,7 +567,7 @@ figure_recovery_benchmark <- function(results, cfg) {
     labs(x = "Recovery definition", y = NULL, title = paste0("Chosen definition: ", benchmark$choice$definition,
                                                             "   |   exercise-end rule: ", benchmark$choice$end_method),
          subtitle = "benchmark on simulated recordings with known recovery constants") + theme_spark(cfg)
-  list(plot = plot, width = 11, height = 4.2, info = list())
+  list(plot = plot, width = 9, height = 4.2, info = list())
 }
 
 figure_numerical_checks <- function(results, cfg) {
@@ -577,15 +575,15 @@ figure_numerical_checks <- function(results, cfg) {
   colours <- figure_palette(cfg, "datasets")
   a <- ggplot(checks$bound, aes(eps, sup_R)) + geom_line(aes(y = bound), linetype = 2, colour = "grey40") + geom_point(size = 1.8) + geom_line() +
     scale_x_log10() + scale_y_log10() +
-    labs(x = tex("$\\epsilon = \\sigma/\\sqrt{\\nu}$"), y = tex("Neglected term, $\\sup R(t)$"), title = "Terminal-threshold approximation",
+    labs(x = tex("$\\epsilon = \\sigma/\\sqrt{\\nu}$"), y = tex("Neglected term, $\\sup R(t)$"), title = "Threshold approximation",
          subtitle = "dashed: analytical bound") + theme_spark(cfg)
   b <- ggplot(checks$fitted_regime, aes(Dataset, eps, colour = Dataset)) + geom_jitter(width = 0.15, size = 1.8) + scale_y_log10() +
     scale_colour_manual(values = colours, guide = "none") + labs(x = NULL, y = tex("$\\epsilon$ fitted"), title = "Fitted regime",
                                                                   subtitle = "relative timing jitter per recording") + theme_spark(cfg)
   c <- ggplot(checks$calibration, aes(crit, KS_Stat)) + geom_abline(slope = 1, linetype = 2, colour = "grey40") + geom_point(size = 1.8) +
-    labs(x = tex("$1.36/\\sqrt{N}$"), y = tex("KS distance $D$"), title = "Calibration of the diagnostic",
+    labs(x = tex("$1.36/\\sqrt{N}$"), y = tex("KS distance $D$"), title = "Diagnostic calibration",
          subtitle = "well-specified simulations") + theme_spark(cfg)
-  list(plot = figure_grid(list(a, b, c), ncol = 3), width = 12, height = 4.2, info = list())
+  list(plot = figure_grid(list(a, b, c), ncol = 3), width = 9, height = 4.4, info = list())
 }
 
 
@@ -615,9 +613,9 @@ figure_prcp_maneuvers <- function(results, cfg) {
     geom_line(aes(colour = colour), linewidth = 0.9) + scale_colour_identity() + scale_fill_identity() +
     facet_grid(variable ~ maneuver, scales = "free_y", switch = "y") +
     labs(x = "Time from the onset of the maneuver (s)", y = NULL, title = "Response by type of maneuver",
-         subtitle = "line: median over events; bands: 25-75% and 10-90%; each event relative to its own baseline; the scale of a row is shared across columns") +
+         subtitle = "median over events; bands: 25-75% and 10-90%") +
     theme_spark(cfg) + theme(strip.placement = "outside", strip.background = element_blank(), strip.text.y.left = element_markdown(angle = 90, face = "plain"))
-  list(plot = plot, width = 3.6 * length(kinds) + 1.2, height = 8.5, info = list(kinds = kinds))
+  list(plot = plot, width = 9, height = 8.5, info = list(kinds = kinds))
 }
 
 

@@ -498,7 +498,7 @@ if (!is.null(prcp$by_kind) && nrow(prcp$by_kind) > 1) {
 }
 ```
 
-![Responses by type of maneuver. Rows: vagal-like state, sympathetic-like state (in baseline SDs), heart rate and MAP (changes); columns: one per kind of maneuver (slow tilt, rapid tilt and stand-up; a tilt that the annotations do not label appears as "tilt"). Line: median over events; bands: 25-75% and 10-90%.](figures/figS7_maneuvers.png){#fig-supp-maneuvers width=100%}
+![Responses by type of maneuver. Rows: vagal-like state, sympathetic-like state (in baseline SDs), heart rate and MAP (changes); columns: one per kind of maneuver (slow tilt, rapid tilt and stand-up; a tilt that the annotations do not label appears as "tilt"). Line: median over events; bands: 25-75% and 10-90%; each event is relative to its own baseline, and the scale of a row is shared across columns.](figures/figS7_maneuvers.png){#fig-supp-maneuvers width=100%}
 
 ```{r}
 #| label: tbl-prcp-contrasts

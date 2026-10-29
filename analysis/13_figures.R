@@ -29,8 +29,9 @@ for (name in names(FIGURE_REGISTRY)) {
       ggsave(file.path(figure_dir, paste0(name, ".pdf")), figure$plot, width = figure$width, height = figure$height, device = grDevices::cairo_pdf, bg = "white")
     }
     if (length(figure$info)) figure_info[[name]] <- figure$info
-    final_pt <- cfg$figures$base_size * min(1, cfg$figures$journal_width_in / figure$width)
-    log_msg("  wrote %s.%s%s", name, format, if (final_pt < cfg$figures$min_text_pt) sprintf("   [width %.1f in: base text %.1f pt at the journal width, below %g pt]", figure$width, final_pt, cfg$figures$min_text_pt) else "")
+    shown_in <- min(cfg$figures$journal_width_in, cfg$figures$text_width_in)           # axis text is base_size - 1 (theme_spark)
+    final_pt <- (cfg$figures$base_size - 1) * min(1, shown_in / figure$width)
+    log_msg("  wrote %s.%s%s", name, format, if (final_pt < cfg$figures$min_text_pt) sprintf("   [width %.1f in: axis text %.1f pt at %.2f in, below %g pt]", figure$width, final_pt, shown_in, cfg$figures$min_text_pt) else "")
   }, error = function(e) log_msg("  SKIPPED %s: %s", name, conditionMessage(e)))
 }
 write_result(figure_info, "figure_info", cfg)

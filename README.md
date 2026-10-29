@@ -153,3 +153,7 @@ The PRCP records contain, besides the beat annotations, protocol annotations (`.
 - pools the tilts as before, and reports the responses by kind (`by_kind`, `kind_contrasts`; Table `tbl-prcp-kinds`, supplementary figure S7).
 
 `cfg$tilt$use_annotations = FALSE` (or no `prcp_events.csv`) restores the earlier behaviour: events from the tilt angle and heart rate only. In the preparation, RR intervals between 0.3 and 2 s within 5 s before to 30 s after a maneuver boundary are not replaced by the cleaning gate (`PREP_SETTINGS$events`; set `extension = NULL` to disable the annotations altogether). After changing any of these, rerun `tools/prep-data.R`, `analysis/model/01_fit_all.R` and `analysis/datasets/05_prcp.R` and `13_figures.R`.
+
+## License and citation
+
+The code is released under the MIT license (`LICENSE`); `CITATION.cff` gives the citation metadata. The PRCP and Fantasia recordings are not redistributed here: they are downloaded from PhysioNet under their own license (Open Data Commons Attribution 1.0). The exercise-cohort RR series in `data-raw/tmst` come from the open-access study cited in the manuscript. `manuscript/support/elsevier-vancouver.csl` is the Elsevier numeric style (parent of the style of *Chaos, Solitons & Fractals*; CC BY-SA 3.0, Citation Style Language project).

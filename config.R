@@ -116,9 +116,10 @@ cfg <- list(
     format = "png",              # raster copy used by the manuscript: "png", "pdf" or "svg"
     dpi = 300,                   # for png
     vector_format = "pdf",       # vector copy written next to every figure (for submission); NULL for none
-    journal_width_in = 7.48,     # width of the journal's double-column figures (190 mm); text is checked at this width
-    min_text_pt = 6,             # smallest acceptable text (pt) at the journal width; smaller text is reported
-    base_size = 10,              # base font size (pt) of every figure, at the design width of the figure
+    journal_width_in = 7.48,     # width of the journal's double-column figures (190 mm)
+    text_width_in = 6.54,        # width of the text block of the Typst PDF (A4, 2.2 cm margins): figures are shown at most this wide
+    min_text_pt = 6,             # smallest acceptable axis text (pt) at the narrower of the two widths; smaller text is reported
+    base_size = 10,              # base font size (pt) of every figure, at the design width of the figure (axis text is base_size - 1)
     font = "Helvetica",                   # preferred font family; the first installed of font, Arial, Helvetica, Liberation Sans, DejaVu Sans is used
 
     # Which recording to showcase in the example figures (7 and 9):

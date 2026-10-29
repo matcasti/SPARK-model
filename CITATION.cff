@@ -1,0 +1,32 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata below (and the article, once published)."
+type: software
+title: "SPARK: Physiology-informed inference of latent cardiac autonomic dynamics from RR intervals"
+abstract: >-
+  R implementation of SPARK (Stochastic Phase-domain Autonomic Reconstruction Kinetics), a physiology-informed
+  stochastic state-space framework for inferring latent vagal-like and sympathetic-like dynamics from RR intervals,
+  with the code that reproduces every result, figure and supplementary check of the manuscript.
+authors:
+  - family-names: Castillo-Aguilar
+    given-names: Matías
+    orcid: "https://orcid.org/0000-0001-7291-247X"
+    affiliation: "Universidad de Magallanes, Punta Arenas, Chile"
+  - family-names: Beelders
+    given-names: Noah
+    orcid: "https://orcid.org/0000-0001-5953-075X"
+    affiliation: "Ludwig-Maximilians-Universität München, Munich, Germany"
+  - family-names: Núñez-Espinosa
+    given-names: Cristian
+    email: cristian.nunez@umag.cl
+    orcid: "https://orcid.org/0000-0002-9896-7062"
+    affiliation: "Universidad de Magallanes, Punta Arenas, Chile"
+repository-code: "https://github.com/matcasti/SPARK-model"
+url: "https://matcasti.github.io/SPARK-app/"
+license: MIT
+keywords:
+  - heart rate variability
+  - autonomic nervous system
+  - state-space model
+  - identifiability
+  - integrate-and-fire
+  - RR intervals
