@@ -402,7 +402,7 @@ figure_exercise <- function(results, cfg) {
     labs(x = NULL, y = tex(paste0("Recovery time (s):\n", words_for(as.character(exercise$summary$recovery_definition), RECOVERY_DEFINITION_TEXT))), title = "Recovery time",
          subtitle = "bar: Kaplan-Meier median") + theme_spark(cfg)
   d <- plot_state_plane(paths, cfg, NULL, reference = "rest", title = "State-plane path, by phase", highlight = example$id,
-                        subtitle = paste0(n_label(uniqueN(paths$id)), "; each panel has its own scale"))
+                        subtitle = paste0(n_label(uniqueN(paths$id)), "; common axes"))
   top <- (tag_panel(a, "A") | tag_panel(b, "B")) + plot_layout(widths = c(1.4, 1))
   lower <- (tag_panel(c, "C") | tag_panel(d, "D")) + plot_layout(widths = c(0.75, 1.9))
   list(plot = top / lower + plot_layout(heights = c(1.5, 1)), width = 9, height = 9.4,

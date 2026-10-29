@@ -230,18 +230,22 @@ plot_state_plane <- function(paths, cfg, median_path = NULL, title = NULL, subti
   base <- ggplot() + geom_hline(yintercept = 0, colour = "grey75", linewidth = 0.25) + geom_vline(xintercept = 0, colour = "grey75", linewidth = 0.25)
   many <- uniqueN(paths$id) > individual_max
   if (many) {
-    # Many recordings: one panel per phase, each with its own scale (rest spans about one baseline SD, exercise tens): density of the points (hexagons),
-    # ellipses that hold 50% and 90% of the points, the median path through the phase (open circle: start) and the highlighted recording
+    # Many recordings: one panel per phase on common axes (the central 99% of the pooled points), so that the panels show where each phase sits in the
+    # whole plane: density of the points of the phase (coloured hexagons) over the pooled density of all phases (grey), ellipses that hold 50% and 90% of
+    # the points, the median path through the phase (open circle: start) and the highlighted recording
     present <- intersect(names(colours), as.character(unique(paths$phase)))
     paths[, phase := factor(as.character(phase), present)]
-    inside <- paths[, { ru <- quantile(u, c(0.005, 0.995), na.rm = TRUE); rv <- quantile(v, c(0.005, 0.995), na.rm = TRUE)
-                        .SD[u >= ru[1] - 0.1 * diff(ru) & u <= ru[2] + 0.1 * diff(ru) & v >= rv[1] - 0.1 * diff(rv) & v <= rv[2] + 0.1 * diff(rv)] }, by = phase]
+    window <- function(x) { q <- quantile(x, c(0.005, 0.995), na.rm = TRUE); q + c(-1, 1) * 0.08 * diff(q) }
+    xlim <- window(paths$u); ylim <- window(paths$v)
+    inside <- paths[u >= xlim[1] & u <= xlim[2] & v >= ylim[1] & v <= ylim[2]]
+    context <- rbindlist(lapply(present, function(p) cbind(inside[, .(u, v)], phase = factor(p, present))))
+    bin <- c(diff(xlim) / 28, diff(ylim) / 28)
     paths[, progress := { r <- range(t); if (diff(r) > 0) (t - r[1]) / diff(r) else 0 }, by = .(id, phase)]
     trajectory <- paths[, .(u = median(u, na.rm = TRUE), v = median(v, na.rm = TRUE)), by = .(phase, bin = pmin(floor(progress * 12), 11))][order(phase, bin)]
     phase_title <- function(x) tools::toTitleCase(as.character(x))
-    plot <- base +
-      geom_hex(data = inside, aes(u, v, fill = after_stat(count)), bins = 26) +
-      scale_fill_gradient(low = "grey95", high = "grey50", trans = "log10", guide = "none") +
+    plot <- base + geom_hex(data = context, aes(u, v), binwidth = bin, fill = "grey91") +
+      lapply(present, function(p) geom_hex(data = inside[phase == p], aes(u, v, alpha = after_stat(count)), binwidth = bin, fill = colours[[p]])) +
+      scale_alpha_continuous(range = c(0.25, 1), trans = "log10", guide = "none") +
       stat_ellipse(data = paths, aes(u, v, colour = phase, group = phase), type = "norm", level = 0.5, linewidth = 0.8) +
       stat_ellipse(data = paths, aes(u, v, colour = phase, group = phase), type = "norm", level = 0.9, linewidth = 0.5, linetype = 2)
     if (!is.null(highlight) && as.character(highlight) %in% as.character(paths$id))
@@ -250,7 +254,7 @@ plot_state_plane <- function(paths, cfg, median_path = NULL, title = NULL, subti
       geom_path(data = trajectory, aes(u, v, group = phase), colour = "white", linewidth = 2, lineend = "round") +
       geom_path(data = trajectory, aes(u, v, group = phase, colour = phase), linewidth = 1.1, lineend = "round", arrow = grid::arrow(length = grid::unit(0.11, "inches"), type = "closed")) +
       geom_point(data = trajectory[, .SD[1], by = phase], aes(u, v), shape = 21, fill = "white", colour = "grey15", size = 2.4, stroke = 0.8) +
-      facet_wrap(~phase, nrow = 1, scales = "free", labeller = labeller(phase = phase_title)) +
+      facet_wrap(~phase, nrow = 1, labeller = labeller(phase = phase_title)) + coord_cartesian(xlim = xlim, ylim = ylim, expand = FALSE) +
       scale_colour_manual(values = colours, breaks = present, guide = "none") +
       labs(x = tex(paste0("$x_p$ (", reference, " SD)")), y = tex(paste0("$x_s$ (", reference, " SD)")), title = title, subtitle = subtitle) +
       theme_spark(cfg) + theme(legend.position = "none"))
