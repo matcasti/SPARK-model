@@ -85,7 +85,7 @@ Check `config.R` afterwards (data folders, Fantasia group regexes `y<number>` / 
 ## Requirements
 
 `Rscript tools/checks/check_env.R` lists them. Required: `data.table`, `ggplot2`, `patchwork`, `ggtext`, `biwavelet`, `numDeriv`, `MASS`, `Rcpp`, `survival`, `Matrix`, `scales`, `viridisLite`;
-recommended: `ragg`, `systemfonts`, `svglite` (anti-aliased PNG with full Unicode: Greek letters, sub- and superscripts), `ggrepel` (non-overlapping recording labels in Figure 3); Python `wfdb` and Quarto only for the preparation and the manuscript. Use a UTF-8 locale.
+recommended: `ragg`, `systemfonts`, `svglite` (anti-aliased PNG with full Unicode: Greek letters, sub- and superscripts), `ggrepel` (non-overlapping recording labels in Figure 2); Python `wfdb` and Quarto only for the preparation and the manuscript. Use a UTF-8 locale.
 A C++ compiler is optional: without it the multi-start analyses use the engine's R filter (same results, slower). On macOS the compiler must be Apple's clang: `.Renviron` puts `/usr/bin`
 first in `PATH`, because a Homebrew LLVM ahead of it mixes its libc++ headers with the SDK and the build fails.
 

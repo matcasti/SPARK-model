@@ -3,6 +3,8 @@ title: "Supplementary material"
 crossref:
   fig-title: "Figure S"
   tbl-title: "Table S"
+  fig-prefix: "Figure S"
+  tbl-prefix: "Table S"
 ---
 
 ```{r}
@@ -14,7 +16,7 @@ txt <- function(e) tryCatch({ x <- as.character(e); if (!length(x) || all(is.na(
 med_range_text <- function(x, d = 2, unit = "") { x <- x[is.finite(x)]; if (!length(x)) return("[PENDING]"); q <- quantile(x, c(0.5, 0.025, 0.975), names = FALSE); sprintf(paste0("%.", d, "f%s [%.", d, "f, %.", d, "f]"), q[1], unit, q[2], q[3]) }
 pct <- function(x, d = 0) if (length(x) && is.finite(x)) sprintf(paste0("%.", d, "f%%"), 100 * x) else "[PENDING]"
 prcp <- load_result("prcp"); prep_checks <- load_result("prep_checks"); checks <- load_result("supp_checks"); sim_recovery <- load_result("sim_recovery"); sensitivity <- load_result("sensitivity"); event_detection <- load_result("event_detection"); recovery_benchmark <- load_result("recovery_choice"); ident <- load_result("identifiability")
-fantasia <- load_result("fantasia"); hrv <- load_result("hrv"); config_used <- load_result("config_used"); figure_info <- load_result("figure_info")
+fantasia <- load_result("fantasia"); exercise <- load_result("exercise"); hrv <- load_result("hrv"); config_used <- load_result("config_used"); figure_info <- load_result("figure_info")
 source("../R/report/manuscript_text.R")          # text generated from the results (as in the manuscript)
 ```
 
@@ -55,6 +57,20 @@ In the fitted recordings, the relative timing jitter $\varepsilon \approx s_{RR}
 # Estimation algorithm {#sec-estimation-algorithm}
 
 This section details the algorithm implemented in the accompanying R engine. The filter evaluates the augmented state $\tilde{X}(t) = [x_p(t), x_s(t), I_p(t), I_s(t)]^\top$ over the observed intervals $\Delta t_k$, $k = 1, \dots, N$. All variances in the recursion are expressed in units of the global scale $\sigma^2_{sys}$, which is restored after profiling. In these units the stationary variances are $V_s = 1$ and $V_p = \lambda_P\,g_k$, where $g_k = 1$ for the ungated model.
+
+The quantities of the augmented state-space model and their estimation status are summarized in @tbl-state-vector.
+
+| Symbol | Description | Estimation status |
+| :--- | :--- | :--- |
+| $x_p(t),\ x_s(t)$ | Latent vagal and sympathetic drives (Hz, deviations from baseline) | Reconstructed (filtered) |
+| $I_p(t),\ I_s(t)$ | Running time-integrals of the drives since the last beat | Reconstructed (filtered) |
+| $\nu_0$ | Intrinsic baseline pacing rate (Hz) | Profiled (GLS) |
+| $\sigma^2_{sys}$ | Global variance scale | Profiled (concentrated ML) |
+| $\kappa_p,\ \kappa_s$ ($\tau_p,\ \tau_s$) | Clearance rates (e-folding times) of the vagal and sympathetic drives | Estimated (MAP) |
+| $\lambda_P = V_p/V_s$ | Relative vagal-to-sympathetic stationary variance | Fixed from wavelet spectral partition |
+| $\lambda_R$ | Threshold-jitter variance rate, relative to $\sigma^2_{sys}$ | Estimated (MAP) |
+
+: Quantities of the augmented state-space model {#tbl-state-vector}
 
 ## Continuous-time transitions and process covariance
 
@@ -469,6 +485,8 @@ In these simulations, the median onset error was `r txt(if (!is.null(event_detec
 
 ![Event detection. (A) Heart-rate-detected minus angle- or annotation-derived onset and return of each maneuver (tilts and stand-ups) in the PRCP recordings. (B) Detected minus true times in simulated recordings with known timing. (C) False-detection rate in stationary simulated recordings and detection rate of simulated tilts as a function of the minimum shift between segments (dashed: value used).](figures/figS5_event_detection.png){#fig-supp-events width=100% fig-alt="Three panels. A: heart-rate-detected minus reference event times for onsets and returns in real recordings. B: detected minus true times in simulations for six detection rules. C: false-detection and detection rates against the minimum shift between segments."}
 
+*Exercise cohort.* `r narrate_exercise(exercise, hrv, part = "supplement")`
+
 ![State-space landscapes of the perturbation (top) and exercise (bottom) conditions. Each panel shows the pooled density of the filtered states in one phase (every recording contributes equally), with its basins (rings) and the mean flow of the states (arrows). Coordinates are in units of each recording's baseline SD; dark = high occupancy. The map is descriptive and is not a potential function estimated from the model.](figures/figS6_landscapes.png){#fig-supp-landscapes width=100% fig-alt="Six density maps of the filtered states in the state plane, top row orthostatic perturbation (baseline, tilt, recovery) and bottom row exercise (rest, exercise, recovery), each with basin markers and flow arrows."}
 
 # Responses by type of maneuver (PRCP) {#sec-prcp-kinds}
@@ -537,13 +555,34 @@ All series are beat-wise and are resampled to 4 Hz by natural cubic splines befo
 
 ![Temporal resolution of the reconstruction relative to a CWT moving spectrum during the perturbation. (A) Median change of the sympathetic-like state (causal filter) and of the CWT LF band power around the tilt onset, in baseline SDs (bands: quartiles over recordings). (B) The same for the vagal-like state and the HF band power; the window required for frequency resolution spreads the CWT power around the transition. (C) Time of first departure from the baseline band, relative to the tilt onset, across recordings.](figures/fig4_benchmarking_comparison.png){#fig-supp-cwt width=100% fig-alt="Three panels. A: change of the sympathetic-like state and of LF band power around tilt onset. B: the same for the vagal-like state and HF band power. C: time of first departure from baseline for each measure."}
 
-# Respiration and blood pressure in the Fantasia recordings {#sec-fantasia-physiology}
+# Additional analyses of the Fantasia recordings {#sec-fantasia-physiology}
 
-*Methods.* For the subjects with a respiration signal, the dominant respiratory frequency (spectral peak between 0.10 and 0.50 Hz) was compared with the HF band (0.15–0.40 Hz), since the spectral anchor assumes that vagal modulation lies mainly in that band, and the respiratory coupling of each reconstructed state was quantified by the SD of the state within the respiratory band (respiratory frequency $\pm$ 0.04 Hz), its share of the total variance of the state in that band and the respiratory-power-weighted coherence with respiration; coherence is insensitive to amplitude, so the band SD and variance share are the primary measures, and the vagal-like and sympathetic-like states were compared within recordings (paired Wilcoxon test). For the subjects with blood pressure, mean systolic pressure, MAP and pulse pressure were summarized and baroreflex sensitivity was estimated by the alpha index in the LF and HF bands at frequencies where the squared coherence exceeds 0.5; these quantities were compared between groups with the same contrasts as in the main text and related to the latent summaries by Spearman correlations (pooled over groups, exploratory). Estimators are detailed in section ["Respiration, blood-pressure and lagged-correlation estimators"](#sec-covariate-methods). The stability of the representation was examined by refitting two non-overlapping windows of each recording (`r stability_window_text(config_used)`).
+*Group contrasts.* The contrasts between young and older adults in the latent summaries and in the conventional HRV metrics are listed in @tbl-fantasia (shown in Figure 3 of the main text).
+
+```{r}
+#| label: tbl-fantasia
+#| tbl-colwidths: [20, 11, 12, 12, 11, 24, 10]
+#| tbl-cap: "Group contrasts in the Fantasia database (older minus young): medians, Hodges–Lehmann shift, Cliff's delta with bootstrap 95% interval, and Benjamini–Hochberg adjusted p-values within family."
+#| echo: false
+if (!is.null(fantasia)) {
+  ct <- fantasia$contrasts[!is.na(median1)]
+  knitr::kable(data.frame(Variable = sym_tex(ct$variable), Family = ct$family, `Median (young)` = fmt_fixed(ct$median1), `Median (older)` = fmt_fixed(ct$median2),
+                          `HL shift` = fmt_fixed(ct$hl_shift), `Cliff's $\\delta$ [95% CI]` = minus(sprintf("%.2f [%.2f, %.2f]", ct$cliff_delta, ct$cliff_lo, ct$cliff_hi)),
+                          `$p$ (BH)` = fmt_p(ct$p_BH), check.names = FALSE), align = "llrrrrr")
+} else cat("[PENDING: results/fantasia.rds]")
+```
+
+*Methods.* The leave-one-out $R^2$ with which the conventional HRV metrics predict each latent summary (low values indicate that the summary is not linearly recoverable from them) and the leave-one-out discrimination (AUC) of young versus older adults using HRV metrics, latent summaries or both were computed on the same recordings. For the subjects with a respiration signal, the dominant respiratory frequency (spectral peak between 0.10 and 0.50 Hz) was compared with the HF band (0.15–0.40 Hz), since the spectral anchor assumes that vagal modulation lies mainly in that band, and the respiratory coupling of each reconstructed state was quantified by the SD of the state within the respiratory band (respiratory frequency $\pm$ 0.04 Hz), its share of the total variance of the state in that band and the respiratory-power-weighted coherence with respiration; coherence is insensitive to amplitude, so the band SD and variance share are the primary measures, and the vagal-like and sympathetic-like states were compared within recordings (paired Wilcoxon test). For the subjects with blood pressure, mean systolic pressure, MAP and pulse pressure were summarized and baroreflex sensitivity was estimated by the alpha index in the LF and HF bands at frequencies where the squared coherence exceeds 0.5; these quantities were compared between groups with the same contrasts as in the main text and related to the latent summaries by Spearman correlations (pooled over groups, exploratory). Estimators are detailed in section ["Respiration, blood-pressure and lagged-correlation estimators"](#sec-covariate-methods). The stability of the representation was examined by refitting two non-overlapping windows of each recording (`r stability_window_text(config_used)`).
 
 *Results.* `r narrate_fantasia(fantasia, hrv, part = "supplement")` The respiration measures are shown in @fig-supp-resp.
 
 ![Respiration in the Fantasia database (subjects with the signal; blood pressure is not available in these recordings). (A) SD of each reconstructed state within the respiratory band, paired within recordings. (B) Respiratory frequency by group, with the HF band shaded.](figures/fig10_fantasia_physiology.png){#fig-supp-resp width=100% fig-alt="Two panels. A: standard deviation of each state within the respiratory band, paired within recordings. B: respiratory frequency by group with the HF band shaded."}
+
+# Fit and innovation diagnostics of the engine specification {#sec-fit-diagnostics}
+
+The summaries of the filtered fit, the Kolmogorov–Smirnov distance and the partial autocorrelation of the standardized innovations of $M_3$ are given in the main text; @fig-supp-fit shows the distributions across recordings and the estimated time constants of the two drives against the 95% intervals of their priors. The calibration of the critical value under a correctly specified model is described in the ["Calibration of the innovation diagnostics"](#sec-calibration) section.
+
+![Fit and innovation diagnostics of the engine specification. (A) Distribution of filtered (in-sample) tracking error across recordings. (B) Cohort-averaged partial autocorrelation function (PACF) of the standardized innovations, with approximate white-noise bounds. (C) Kolmogorov–Smirnov distances ($D$) from the time-rescaling analysis across recordings, relative to recording-specific critical values. (D) Estimated time constants of the two drives ($\tau = 1/\kappa$) against the 95% intervals of their priors (grey).](figures/fig1_statistical_validation.png){#fig-supp-fit width=100% fig-alt="Four panels. A: distribution of the filtered tracking error of RR by dataset. B: mean partial autocorrelation of the innovations by lag, with white-noise bounds. C: Kolmogorov-Smirnov distance against its critical value for each recording. D: estimated time constants of the two drives against their prior intervals."}
 
 # Analysis pipeline and reproducibility {#sec-pipeline}
 
@@ -551,15 +590,15 @@ All results can be regenerated from the CSV files with the accompanying R projec
 
 | Script (`analysis/`) | Output (`results/`) | Manuscript content |
 | :--- | :--- | :--- |
-| `01_fit_all.R` | `fit_*.rds`, `df_population_summary.rds` | Fit and innovation diagnostics; time constants (Figure 3) |
+| `01_fit_all.R` | `fit_*.rds`, `df_population_summary.rds` | Fit and innovation diagnostics; time constants (Figure S10) |
 | `02_simulation_recovery.R` | `sim_recovery.rds` | Recovery under known truth (Figure S1) |
-| `03_identifiability.R` | `identifiability.rds` | Results 1–2 (Figure 2, Table 4) |
+| `03_identifiability.R` | `identifiability.rds` | Results 1–2 (Figure 1, Table 3) |
 | `04_sensitivity.R` | `sensitivity.rds` | Sensitivity, prior contrast (Figure S2) |
-| `05_prcp.R` | `prcp.rds` | Result 3: every tilt and stand-up of each recording (protocol annotations `data/prcp_events.csv` when present), pressure response, lagged correlation, dose-response, responses by type of maneuver (Figure 4; Figures S6–S8) |
-| `06_fantasia.R` | `fantasia.rds` | Result 4: group contrasts, stability, respiration and baroreflex (Figure 5; Figure S9) |
+| `05_prcp.R` | `prcp.rds` | Result 3: every tilt and stand-up of each recording (protocol annotations `data/prcp_events.csv` when present), pressure response, lagged correlation, dose-response, responses by type of maneuver (Figure 2; Figures S6–S8) |
+| `06_fantasia.R` | `fantasia.rds` | Result 4: group contrasts, stability, respiration and baroreflex (Figure 3; Figure S9) |
 | `07_recovery_benchmark.R` | `recovery_choice.rds` | Recovery definition (Figure S3) |
 | `08_event_detection_validation.R` | `event_detection.rds` | Event detection (Figure S5) |
-| `09_exercise.R` | `exercise.rds` | Result 5 (Figure 6; Figure S6) |
+| `09_exercise.R` | `exercise.rds` | Result 5 (Figure 4; Figure S6) |
 | `10_hrv_comparators.R` | `hrv.rds` | HRV comparators |
 | `11_supplement_checks.R` | `supp_checks.rds` | Bound, calibration, equivalence checks (Figure S4) |
 | `12_preprocessing_checks.R` | `prep_checks.rds` | Data-preparation checks (earlier vs current format, cleaning gate) |

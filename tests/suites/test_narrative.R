@@ -52,11 +52,12 @@ fake_fantasia <- function(delta) {
        incremental = list(auc_hrv = 0.7, auc_latent = 0.7, auc_both = 0.7, r2_latent_from_hrv = c(a = 0.2, b = 0.3)), physiology = NULL)
 }
 strong <- narrate_fantasia(fake_fantasia(c(-0.8, 0.6, -0.9, -0.7))); weak <- narrate_fantasia(fake_fantasia(c(0.05, 0.1, -0.1, 0.0)))
-check("Fantasia: differences above the threshold are listed with direction", grepl("reached", strong) && grepl("lower in older adults", strong) && grepl("higher in older adults", strong))
+strong_up <- narrate_fantasia(fake_fantasia(c(0.9, -0.6, -0.9, -0.7)))
+check("Fantasia: the largest difference above the threshold is named, with its direction (both directions)", grepl("reached", strong) && grepl("the largest being", strong) && grepl("lower in older adults", strong) && grepl("higher in older adults", strong_up))
 check("Fantasia: no difference is reported as none", grepl("none of the 2 latent", weak) && !grepl("lower in older", weak))
 
 # Missing optional inputs never break the text and no "NA" / "Inf" leaks ------------------------------------------------------------
-all_text <- c(ambiguous, unambiguous, all_ok, none_ok, mixed, strong, weak)
+all_text <- c(ambiguous, unambiguous, all_ok, none_ok, mixed, strong, strong_up, weak)
 # PRCP: responses by type of maneuver ----------------------------------------------------------------------------------
 kinds_fake <- list(by_kind = data.table(kind = c("slow tilt", "rapid tilt", "stand-up"), n_events = c(20L, 20L, 18L), n_recordings = 10L, frac_both_expected = c(1, 0.95, 0.89),
                                         z_d_x_p_med = c(-1, -2, -3), z_d_x_s_med = c(5, 6, 7)),
