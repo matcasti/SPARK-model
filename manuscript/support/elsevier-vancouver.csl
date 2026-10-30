@@ -105,10 +105,14 @@
           <group delimiter=", ">
             <group delimiter=". ">
               <text variable="title"/>
-              <group>
-                <text term="in" text-case="sentence" suffix=": "/>
-                <text macro="editor"/>
-              </group>
+              <choose>
+                <if variable="editor">
+                  <group>
+                    <text term="in" text-case="sentence" suffix=": "/>
+                    <text macro="editor"/>
+                  </group>
+                </if>
+              </choose>
               <group delimiter=", ">
                 <text variable="container-title" form="short"/>
                 <text variable="volume" prefix="vol. "/>

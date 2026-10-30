@@ -1,7 +1,7 @@
-run_finished: 2026-10-29 18:04:29 -03
+run_finished: 2026-10-30 19:50:37 -03
 steps_run: 01 02 03 04 05 06 07 08 09 10 11 12 13
-git_commit: 301d0c9d250dfd51bf2c74271effc9b7e04b936f
-git_code_files_changed_since_commit: 4
+git_commit: 3509b784c1dd9aa68fa3bb2b8016537556e1f8fd
+git_code_files_changed_since_commit: 0
 R: R version 4.6.1 (2026-06-24) | aarch64-apple-darwin23
 packages: data.table 1.18.4, ggplot2 4.0.3, patchwork 1.3.2, ggtext 0.2.0, biwavelet 0.20.22, numDeriv 2016.8.1.1, MASS 7.3.66, Rcpp 1.1.2, survival 3.8.11, ragg 1.5.2
 seed: 20261004
