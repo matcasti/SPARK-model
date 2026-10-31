@@ -362,7 +362,7 @@ The exercise cohort is a secondary analysis of recordings from a previously publ
 
 # Code availability {.unnumbered}
 
-The model is implemented in R (engine deposited with this article as model_code.R). An equivalent implementation runs entirely in the browser, without uploading data, at <https://matcasti.github.io/SPARK-app/>. In the reference series tested, its states, likelihood and parameter estimates agree with those of the R engine to numerical precision. The application is intended for research use and exploration, not for clinical decisions.
+The model is implemented in R (engine deposited with this article as model_code.R). An equivalent implementation runs entirely in the browser, without uploading data, at <https://matcasti.github.io/SPARK-app/>. In the reference series tested, its states, likelihood and parameter estimates agree closely with those of the R engine (relative differences below 10^-4^). The application is intended for research use and exploration, not for clinical decisions.
 
 # Data availability {.unnumbered}
 
