@@ -93,4 +93,14 @@ check("highlights: 3 to 5 bullets of at most 85 characters", length(highlights) 
 keywords <- strsplit(sub("^\\*\\*Keywords\\*\\*: ", "", grep("^\\*\\*Keywords\\*\\*:", readLines("manuscript/manuscript.qmd", warn = FALSE), value = TRUE)), ", ")[[1]]
 check("keywords: 1 to 7", length(keywords) %in% 1:7, keywords)
 
+# GitHub Pages: the workflow deploys the branch that tools/publish_site.R pushes, and the Makefile has the targets the README names
+workflow_text <- read_text(".github/workflows/pages.yml")
+publish_text <- read_text("tools/publish_site.R")
+makefile_text <- read_text("Makefile")
+check("Pages workflow: runs on the branch that publish_site.R pushes and deploys the folder it creates",
+      grepl("branches: \\[site\\]", workflow_text) && grepl("site:site", publish_text) && grepl("path: public", workflow_text) && grepl("\"public\"", publish_text) &&
+        grepl("workflow_dispatch", workflow_text))
+check("Makefile: publish and publish-check exist, are listed in .PHONY and call publish_site.R",
+      grepl("(?m)^\\.PHONY:.* publish publish-check", makefile_text, perl = TRUE) && grepl("(?m)^publish:.*render", makefile_text, perl = TRUE) && grepl("publish_site.R --dry-run", makefile_text, fixed = TRUE))
+
 cat(sprintf("\n%d workflow checks passed.\n", n_pass))

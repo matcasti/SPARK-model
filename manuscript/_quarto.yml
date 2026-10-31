@@ -21,6 +21,8 @@ format:
   html:
     title-block-style: manuscript
     embed-resources: true
+    include-in-header:
+      - text: '<meta name="robots" content="noindex">'     # not indexed by search engines while the article is unpublished; remove then
     resources: [model_code.R]
     code-links:
       - text: Model (R script)
