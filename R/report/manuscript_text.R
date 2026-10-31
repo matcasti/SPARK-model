@@ -21,7 +21,8 @@ NARRATIVE <- list(
   disagree_share = 0.25,    # below which it is called not consistent
   similar_rel = 0.20,       # two values within this relative difference are called similar
   effect_size = 0.33,       # |Cliff's delta| at or above which a group difference is called medium or larger
-  sync_s = 5                # onsets within this many seconds are called simultaneous
+  sync_s = 5,               # onsets within this many seconds are called simultaneous
+  share_change = 0.10       # median absolute change of the vagal variance share at or above which a hyperparameter is called influential
 )
 
 
@@ -81,6 +82,7 @@ compare_phrase <- function(a, b, rel = NARRATIVE$similar_rel) {
 #' Fixed-notation numbers for tables (never scientific notation): `digits` significant digits; p-values below 0.001 as "<0.001".
 minus_sign <- function(x) gsub("-", "\u2212", x, fixed = TRUE)        # a true minus sign does not break across lines in tables
 fmt_fixed <- function(x, digits = 3) minus_sign(vapply(x, function(v) if (!is.finite(v)) "" else if (v == 0) "0" else sprintf(paste0("%.", max(0, digits - 1 - floor(log10(abs(signif(v, digits))))), "f"), v), character(1)))
+p_math <- function(p) ifelse(is.finite(p), ifelse(p < 0.001, "$p < 0.001$", paste0("$p = ", formatC(p, format = "f", digits = 3), "$")), "[PENDING]")
 fmt_p <- function(p) ifelse(is.finite(p), ifelse(p < 0.001, "<0.001", formatC(p, format = "f", digits = 3)), "")
 
 
@@ -215,6 +217,14 @@ narrate_constraints <- function(ident, sensitivity = NULL, sim_recovery = NULL, 
                    num(err("off_prior", "M0")), " for $M_0$ and ", num(err("off_prior", "M3")), " for $M_3$ (the $M_3$ error was ",
                    compare_phrase(err("off_prior", "M3"), err("off_prior", "M0")), " the $M_0$ error); when they lay inside, ",
                    num(err("in_prior", "M0")), " and ", num(err("in_prior", "M3")), ". These values delimit the claim: constraints that help when the truth is compatible with them can bias the estimates when it is not.")
+    cover <- as.data.frame(sim_recovery$summary); cover <- cover[cover$spec == "M3" & is.finite(cover$cover_x_p) & is.finite(cover$cover_x_s), ]
+    if (nrow(cover)) {
+      lowest <- cover[which.min(pmin(cover$cover_x_p, cover$cover_x_s)), ]
+      text <- paste0(text, " The 95% intervals of the filtered $M_3$ states, which are conditional on the MAP parameters, contained the true state at ", pct(min(cover$cover_x_p, cover$cover_x_s)), " to ",
+                     pct(max(cover$cover_x_p, cover$cover_x_s)), " of the time points across the four scenarios; the lowest coverage was that of ",
+                     if (lowest$cover_x_p <= lowest$cover_x_s) "$x_p$" else "$x_s$", " in the ", tolower(gsub("\n", " ", SCENARIO_LABELS[[lowest$scenario]])), " scenario (",
+                     pct(min(lowest$cover_x_p, lowest$cover_x_s)), ").")
+    }
   }
   if (part == "supplement") return(trimws(extra))
   text
@@ -250,10 +260,11 @@ narrate_prcp <- function(prcp, part = c("main", "supplement")) guarded("results/
 
   tilts <- if (is.null(s$n_events)) "" else paste0(" (", s$n_events, " tilts, each analyzed against its own baseline; a recording contributes the median over its tilts)")
   consistency <- if (is.null(s$frac_events_both_expected)) "" else paste0(" The same pattern was present in ", pct(s$frac_events_both_expected), " of the individual tilts.")
+  ci_both <- if (is.null(s$ci_both_expected) || !all(is.finite(s$ci_both_expected))) "" else paste0(" (exact 95% interval ", pct(s$ci_both_expected[1]), " to ", pct(s$ci_both_expected[2]), ")")
   apportion <- " Because heart rate rises during tilt, the net change of the two states is largely fixed by RR; what the spectral anchor and the priors determine is how that change is apportioned between the two drives."
   text <- paste0(
-    "In ", n, " recordings with a defined perturbation", tilts, ", the vagal-like state decreased and the sympathetic-like state increased in ", count_of(round(both * n), n),
-    ", which is ", pattern, " the expected pattern of vagal withdrawal with sympathetic engagement.", consistency, apportion, " ",
+    "In ", n, " recordings with a defined perturbation", tilts, ", the vagal-like state decreased and the sympathetic-like state increased in ", count_of(round(both * n), n), ci_both,
+    ", which is ", pattern, " the expected pattern of vagal withdrawal with sympathetic engagement.", consistency, placebo_sentence(prcp$placebo), apportion, " ",
     "The sympathetic-like response began ",
     if (timing == "at about the same time as") paste0("at about the same time as the vagal-like response (median difference ", num(abs(lag), 1), " s; within ", NARRATIVE$sync_s, " s counted as simultaneous)")
     else paste0("a median of ", num(abs(lag), 1), " s ", timing, " the vagal-like response"), ", and its time constant was ", tau_phrase,
@@ -290,6 +301,23 @@ narrate_prcp <- function(prcp, part = c("main", "supplement")) guarded("results/
   paste0(main, " With ", n, " recordings and with events partly defined from the same RR series, this is a test of physiological coherence and not evidence that the components correspond to the activity of the respective autonomic branches.")
 })
 
+
+#' Negative control of the tilt analysis (prcp_placebo_summary()): the expected pattern in the halves of the resting baseline versus in the tilts, and the size of the changes.
+#' The wording follows the intervals: "clearly lower" only when the upper end of the placebo interval lies below the lower end of the tilt interval.
+placebo_sentence <- function(pl) {
+  if (is.null(pl)) return("")
+  guarded("results/prcp.rds (negative control)", {
+    separated <- pl$ci_placebo[2] < pl$ci_real[1]
+    ratio <- function(a, b) if (is.finite(a) && is.finite(b) && b > 0) num(a / b, 1) else "[PENDING]"
+    paste0(" As a negative control, the same contrast applied to the two halves of each tilt\u2019s resting baseline gave the expected pattern in ", count_of(pl$k_placebo, pl$n_events),
+           " baselines (", pct(pl$frac_placebo), "; exact 95% interval ", pct(pl$ci_placebo[1]), " to ", pct(pl$ci_placebo[2]), "), against ", count_of(pl$k_real, pl$n_events), " tilts (",
+           pct(pl$frac_real), "; ", pct(pl$ci_real[1]), " to ", pct(pl$ci_real[2]), "), ", if (separated) "so the pattern is clearly less frequent without a perturbation" else "so the pattern is not clearly less frequent without a perturbation",
+           "; the median absolute standardized change was ", ratio(pl$abs_z_p, pl$abs_z_p_placebo), " times larger for $x_p$ and ", ratio(pl$abs_z_s, pl$abs_z_s_placebo),
+           " times larger for $x_s$ during the tilt (exact paired signed-rank test over ", pl$n_recordings, " recordings, one-sided: ",
+           if (identical(p_math(pl$p_paired_p), p_math(pl$p_paired_s))) paste0(p_math(pl$p_paired_p), " for both") else paste0(p_math(pl$p_paired_p), " for $x_p$ and ", p_math(pl$p_paired_s), " for $x_s$"),
+           "). A placebo share above the 25% expected for two independent random signs suggests slow drift within the baseline.")
+  })
+}
 
 #' Comparison of the departure times of the states and of the moving band power (tilt analysis); wording follows the numbers.
 cwt_timing_sentence <- function(s) {
@@ -482,7 +510,25 @@ sensitivity_sentence <- function(sensitivity) {
     h <- s[s$kind == "hyperparameter", ]
     paste0("Varying the physiological hyperparameters one at a time changed the time constants by a median absolute log-ratio of at most ", num(max(h$med_abs_ln_tau_p, h$med_abs_ln_tau_s)),
            " and left the reconstructed trajectories correlated at least ", num(min(h$med_cor_x_p, h$med_cor_x_s, na.rm = TRUE)), " with the reference. ",
-           "These correlations are insensitive to a change of scale and therefore do not address how a change is apportioned between the two drives, which was the most sensitive aspect (see the limitations).")
+           "The direction and time course of the reconstructed states were therefore robust to these settings. Correlations are insensitive to a change of scale, however, and do not address how variance is apportioned between the two drives: the share of latent variance attributed to the vagal-like process changed by a median absolute ",
+           num(max(h$med_abs_d_share_p)), " at most, for ", setting_label(h$setting[which.max(h$med_abs_d_share_p)]),
+           if (any(s$setting == "M3 without anchor")) paste0(", and by ", num(s$med_abs_d_share_p[s$setting == "M3 without anchor"]), " when the spectral anchor was removed") else "",
+           ", so statements about the split between the two drives are conditional on the anchor settings (see the limitations).")
+  })
+}
+
+#' Hyperparameters whose variation moved the share of latent variance attributed to the vagal-like process by at least NARRATIVE$share_change
+#' (median absolute change over recordings), for the Limitations. Returns a phrase that completes "changed ... with".
+share_sensitivity_clause <- function(sensitivity) {
+  if (is.null(sensitivity)) return("")
+  guarded("results/sensitivity.rds", {
+    h <- as.data.frame(sensitivity$summary); h <- h[h$kind == "hyperparameter", ]
+    base <- sub("=.*", "", h$setting)
+    biggest <- tapply(h$med_abs_d_share_p, base, max)
+    influential <- names(biggest)[biggest >= NARRATIVE$share_change]
+    if (!length(influential)) return(paste0("by less than ", num(NARRATIVE$share_change), " with any of the hyperparameters varied"))
+    influential <- influential[order(-biggest[influential])]
+    paste0("by a median absolute ", num(NARRATIVE$share_change), " or more with ", join_and(unname(SETTING_LABELS[influential])))
   })
 }
 
@@ -511,7 +557,10 @@ prcp_discussion_sentence <- function(prcp) guarded("results/prcp.rds", {
   both <- s$frac_both_expected
   pattern <- if (both >= NARRATIVE$agree_share) "consistent with" else if (both <= NARRATIVE$disagree_share) "not consistent with" else "only partly consistent with"
   paste0("During orthostatic tilt, the reconstructed vagal-like state decreased and the sympathetic-like state increased in ", count_of(round(both * s$n_detected), s$n_detected),
-         " recordings (", pct(both), "), a pattern ", pattern, " the expected autonomic adaptation to orthostatic stress.")
+         " recordings (", pct(both), "), a pattern ", pattern, " the expected autonomic adaptation to orthostatic stress.",
+         if (is.null(prcp$placebo)) "" else if (prcp$placebo$ci_placebo[2] < prcp$placebo$ci_real[1])
+           " The same contrast was clearly less frequent in the resting baselines (negative control), where it reflects drift and not a perturbation."
+         else " The same contrast was not clearly less frequent in the resting baselines (negative control), which limits what the sign pattern alone can show.")
 })
 
 prcp_pattern_clause <- function(prcp) guarded("results/prcp.rds", {

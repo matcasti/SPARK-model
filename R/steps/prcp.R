@@ -6,6 +6,7 @@
 #
 #   prcp_define_events()       every tilt: from the tilt angle, else from heart rate; their windows
 #   prcp_state_response()      change of x_p, x_s between phases + step-response fits (one event)
+#   prcp_placebo_response()    negative control: the same contrast between the two halves of the resting baseline (one event)
 #   prcp_pressure_response()   same for blood pressure (when available)
 #   prcp_lagged_correlation()  states vs MAP after removing slow trends (whole recording)
 #   prcp_dose_response()       mean states / HR / MAP over tilt-angle plateaus (whole recording)
@@ -126,6 +127,23 @@ prcp_state_response <- function(states, id, w) {
 }
 
 
+#' Negative control for the phase contrast: the resting baseline of an event is split in two halves and the second half is contrasted with
+#' the first exactly as the tilt is contrasted with the baseline (difference of the means in SDs of the first part; expected signs: x_p
+#' down, x_s up). No maneuver separates the two halves, so any "expected" pattern here arises from drift, noise or from the way
+#' the contrast is built, and not from a perturbation.
+#' @return one-row table with the same columns as the main contrast, or NULL when a half has fewer than `min_beats` beats
+prcp_placebo_response <- function(states, id, w, min_beats = 20L) {
+  middle <- w$t_base_from + (w$t_onset - w$t_base_from) / 2
+  first <- states[Time >= w$t_base_from & Time < middle]
+  second <- states[Time >= middle & Time < w$t_onset]
+  if (nrow(first) < min_beats || nrow(second) < min_beats) return(NULL)
+  change_p <- mean(second$X_p) - mean(first$X_p)
+  change_s <- mean(second$X_s) - mean(first$X_s)
+  data.table(SubjectID = id, event = w$event, z_d_x_p = change_p / sd(first$X_p), z_d_x_s = change_s / sd(first$X_s),
+             expected_p = change_p < 0, expected_s = change_s > 0)
+}
+
+
 # ---- Step 3: blood pressure -------------------------------------------------------------------------------
 #' Pressure change between the event's baseline and its tilt (first 30 s after the onset excluded) and step
 #' response of MAP.
@@ -222,7 +240,7 @@ prcp_analyse_recording <- function(id, states, cfg, maneuvers = NULL) {
     if (is.null(state_response)) return(NULL)
     list(response = state_response$response, phase = state_response$phase_summary,
          bp = prcp_pressure_response(recording, id, w, state_response$response, min_coverage),
-         lead = prcp_cwt_timing(recording, cwt, id, w))
+         lead = prcp_cwt_timing(recording, cwt, id, w), placebo = prcp_placebo_response(recording, id, w))
   }
   per_event <- setNames(lapply(which(ev$windows$usable), one_event), which(ev$windows$usable))
   per_event <- Filter(Negate(is.null), per_event)
@@ -240,6 +258,7 @@ prcp_analyse_recording <- function(id, states, cfg, maneuvers = NULL) {
     recording = ev$recording, events = ev$events,
     response = tag_kind(rbindlist(lapply(per_event, `[[`, "response"))), bp = tag_kind(rbindlist(lapply(per_event, `[[`, "bp"))),
     phase = tag_kind(rbindlist(lapply(per_event, `[[`, "phase"))), lead = tag_kind(rbindlist(lapply(per_event, `[[`, "lead"))),
+    placebo = tag_kind(rbindlist(lapply(per_event, `[[`, "placebo"))),
     xcorr = lagged, dose = prcp_dose_response(recording, id, cfg),
     series = list(
       t = recording$Time, x_p = recording$X_p, x_s = recording$X_s,
@@ -307,6 +326,30 @@ prcp_dose_levels <- function(dose) {
   dose[, lapply(.SD, mean, na.rm = TRUE), by = level, .SDcols = variables][order(level)]
 }
 
+#' Negative control against the real contrast, for the tilts: share of events with the expected pattern in the placebo contrast (halves
+#' of the baseline) and in the tilt contrast, with exact 95% intervals (descriptive: events of one recording are not independent), the
+#' median absolute standardized change of each state in both, and the paired comparison over recordings (median over the recording's
+#' events; exact Wilcoxon signed-rank). Only events that have both contrasts are used.
+#' @param response_events,placebo_events per-event tables of the tilts (columns SubjectID, event, z_d_x_p, z_d_x_s, expected_p, expected_s)
+prcp_placebo_summary <- function(response_events, placebo_events) {
+  if (is.null(placebo_events) || !nrow(placebo_events)) return(NULL)
+  keys <- c("SubjectID", "event")
+  both <- merge(response_events[, c(keys, "z_d_x_p", "z_d_x_s", "expected_p", "expected_s"), with = FALSE],
+                placebo_events[, c(keys, "z_d_x_p", "z_d_x_s", "expected_p", "expected_s"), with = FALSE], by = keys, suffixes = c("", "_placebo"))
+  if (!nrow(both)) return(NULL)
+  n <- nrow(both)
+  k_real <- sum(both$expected_p & both$expected_s); k_placebo <- sum(both$expected_p_placebo & both$expected_s_placebo)
+  per_recording <- both[, .(abs_p = median(abs(z_d_x_p)), abs_s = median(abs(z_d_x_s)),
+                            abs_p_placebo = median(abs(z_d_x_p_placebo)), abs_s_placebo = median(abs(z_d_x_s_placebo))), by = SubjectID]
+  signed_rank <- function(a, b) if (nrow(per_recording) >= 4) suppressWarnings(stats::wilcox.test(a, b, paired = TRUE, alternative = "greater", exact = TRUE)$p.value) else NA_real_
+  list(n_events = n, n_recordings = nrow(per_recording),
+       k_real = k_real, k_placebo = k_placebo, frac_real = k_real / n, frac_placebo = k_placebo / n,
+       ci_real = exact_ci(k_real, n), ci_placebo = exact_ci(k_placebo, n),
+       abs_z_p = median(abs(both$z_d_x_p)), abs_z_s = median(abs(both$z_d_x_s)),
+       abs_z_p_placebo = median(abs(both$z_d_x_p_placebo)), abs_z_s_placebo = median(abs(both$z_d_x_s_placebo)),
+       p_paired_p = signed_rank(per_recording$abs_p, per_recording$abs_p_placebo), p_paired_s = signed_rank(per_recording$abs_s, per_recording$abs_s_placebo))
+}
+
 #' Numbers quoted in the manuscript (median [2.5th, 97.5th percentile] across recordings, counts, shares).
 #' `recordings`, `response`, `bp`, `lead`: one row per recording (prcp_by_recording()); `tilts` and
 #' `response_events`: one row per tilt, for counts and the within-recording consistency.
@@ -321,6 +364,7 @@ prcp_summarise <- function(recordings, response, bp, xcorr, dose_cor, lead, vali
     events_per_recording = median_range(recordings$n_analysed),
     frac_expected_p = mean(response$expected_p), frac_expected_s = mean(response$expected_s),
     frac_both_expected = mean(response$expected_p & response$expected_s),
+    ci_both_expected = exact_ci(sum(response$expected_p & response$expected_s), nrow(response)),
     frac_events_both_expected = mean(response_events$expected_p & response_events$expected_s),
     z_d_x_p = median_range(response$z_d_x_p), z_d_x_s = median_range(response$z_d_x_s),
     lag_s_minus_p = median_range(response$lag_s_minus_p),

@@ -6,6 +6,7 @@
 #                            response / bp / lead (one row per recording, median over its tilts) and
 #                            response_events / bp_events / lead_events (one row per tilt), lagged correlation,
 #                            dose-response, validation of the RR-based events (per angle-derived tilt),
+#                            negative control (placebo_events, placebo: baseline halves contrasted like a tilt),
 #                            summary numbers, landscape_modes and the series of every recording (series_all)
 #                            from which the figures take the showcased example
 # Method  A recording holds several maneuvers. Tilts come from the tilt angle when present (labelled slow / rapid from the protocol
@@ -49,6 +50,7 @@ if (is.null(response_events) || !nrow(response_events)) {      # nothing to anal
 
 # ---- 3. Combine ---------------------------------------------------------------------------------------
 phase_events_all <- bind_results(results, "phase"); lead_events_all <- bind_results(results, "lead"); bp_events_all <- bind_results(results, "bp")
+placebo_events <- is_tilt(bind_results(results, "placebo"))
 phase_events <- is_tilt(phase_events_all); lead_events <- is_tilt(lead_events_all); bp_events <- is_tilt(bp_events_all)
 xcorr        <- bind_results(results, "xcorr")
 dose         <- bind_results(results, "dose")
@@ -64,6 +66,7 @@ kind_contrasts <- prcp_kind_contrasts(response_events_all)
 validation  <- prcp_event_validation(tilts)
 dose_cor    <- prcp_dose_correlations(dose)
 dose_levels <- prcp_dose_levels(dose)
+placebo <- prcp_placebo_summary(response_events, placebo_events)       # negative control: halves of the resting baseline
 summary <- prcp_summarise(recordings, response, bp, xcorr, dose_cor, lead, validation, tilts, response_events)
 
 # Series of every recording (the figures choose which one to showcase: cfg$figures$example$prcp)
@@ -79,7 +82,7 @@ example <- series_all[[example_id]]
 write_result(list(events = recordings, tilts = tilts, response = response, bp = bp, lead = lead,
                   response_events = response_events, bp_events = bp_events, lead_events = lead_events,
                   xcorr = xcorr, dose = dose, dose_cor = dose_cor, dose_levels = dose_levels, validation = validation,
-                  phase = phase_events, summary = summary, example = example, example_id = example_id,
+                  phase = phase_events, placebo_events = placebo_events, placebo = placebo, summary = summary, example = example, example_id = example_id,
                   by_kind = by_kind, kind_contrasts = kind_contrasts, response_events_all = response_events_all, bp_events_all = bp_events_all,
                   annotations_used = !is.null(prcp_events) && isTRUE(cfg$tilt$use_annotations),
                   series_all = series_all, landscape_modes = landscape_modes), "prcp", cfg)

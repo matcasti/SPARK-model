@@ -26,7 +26,7 @@ PIPELINE <- list(
   step("04", "model/04_sensitivity.R", "Sensitivity to hyperparameters, prior vs posterior",
        reads = "data", writes = "sensitivity", used_in = "Sensitivity, prior contrast (Figure S2)"),
   step("05", "datasets/05_prcp.R", "Orthostatic perturbation (PRCP)",
-       reads = c("fit_prcp", "data"), writes = "prcp", used_in = "Result 3: tilts and stand-ups, pressure response, lagged correlation, dose-response, responses by maneuver (Figure 2; S6 to S8)"),
+       reads = c("fit_prcp", "data"), writes = "prcp", used_in = "Result 3: tilts and stand-ups, negative control, pressure response, lagged correlation, dose-response, responses by maneuver (Figure 2; S6 to S8)"),
   step("06", "datasets/06_fantasia.R", "Aging, respiration, baroreflex (Fantasia)",
        reads = c("fit_fantasia", "data"), writes = "fantasia", used_in = "Result 4: group contrasts, stability, respiration and baroreflex (Figure 3; S9)"),
   step("07", "validation/07_recovery_benchmark.R", "Choice of the recovery definition",

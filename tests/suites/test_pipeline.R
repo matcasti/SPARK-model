@@ -74,6 +74,26 @@ check("first_departure respects t_max", dep >= 100 && dep <= 101 && is.na(first_
 per_event <- data.table(SubjectID = c("a", "a", "a", "b"), event = c(1, 2, 3, 1), d_x_p = c(-1, -3, 2, -2), d_x_s = c(1, 2, 3, -1), tau_p_resp = c(2, 4, 6, 8))
 by_recording <- prcp_by_recording(per_event)
 check("prcp_by_recording: median over a recording's tilts, expected pattern recomputed", by_recording[SubjectID == "a", d_x_p] == -1 && by_recording[SubjectID == "a", n_events] == 3 && by_recording[SubjectID == "a", expected_p] && !by_recording[SubjectID == "b", expected_s])
+# negative control: halves of the resting baseline, contrasted like a tilt
+set.seed(1)
+st <- data.table(Time = 0:599, X_p = c(rnorm(300, 0, 1), rnorm(300, -5, 1)), X_s = c(rnorm(300, 0, 1), rnorm(300, 6, 1)))
+w_drift <- list(event = 1L, t_base_from = 0, t_onset = 300)
+pl <- prcp_placebo_response(st, "a", w_drift)
+check("prcp_placebo_response: halves of a stationary baseline show a small change and no tilt-sized one", is.finite(pl$z_d_x_p) && abs(pl$z_d_x_p) < 0.5 && abs(pl$z_d_x_s) < 0.5)
+st_ramp <- copy(st); st_ramp[, `:=`(X_p = X_p - Time / 30, X_s = X_s + Time / 30)]
+pl_ramp <- prcp_placebo_response(st_ramp, "a", w_drift)
+check("prcp_placebo_response: a drift in the expected direction gives the expected signs", pl_ramp$expected_p && pl_ramp$expected_s && pl_ramp$z_d_x_p < -1 && pl_ramp$z_d_x_s > 1)
+check("prcp_placebo_response: a half with fewer than 20 beats gives NULL", is.null(prcp_placebo_response(st, "a", list(event = 1L, t_base_from = 280, t_onset = 300))))
+real_ev <- data.table(SubjectID = rep(c("a", "b"), each = 4), event = rep(1:4, 2), z_d_x_p = -5, z_d_x_s = 8, expected_p = TRUE, expected_s = TRUE)
+plc_ev <- data.table(SubjectID = rep(c("a", "b"), each = 4), event = rep(1:4, 2), z_d_x_p = c(.1, -.2, .3, -.1, .2, -.3, .1, .4), z_d_x_s = c(.2, -.1, -.3, .1, .3, .2, -.2, -.1),
+                     expected_p = c(TRUE, TRUE, FALSE, TRUE, FALSE, TRUE, FALSE, FALSE), expected_s = c(TRUE, FALSE, FALSE, TRUE, TRUE, TRUE, FALSE, FALSE))
+ps <- prcp_placebo_summary(real_ev, plc_ev)
+check("prcp_placebo_summary: counts, shares and exact intervals of the placebo and the real contrast", ps$n_events == 8 && ps$k_real == 8 && ps$k_placebo == 3 && abs(ps$frac_placebo - 3 / 8) < 1e-12 &&
+        ps$ci_placebo[1] < 3 / 8 && ps$ci_placebo[2] > 3 / 8 && ps$ci_real[2] == 1 && ps$ci_real[1] > 0.6 && ps$abs_z_p > 10 * ps$abs_z_p_placebo)
+check("prcp_placebo_summary: nothing to compare gives NULL", is.null(prcp_placebo_summary(real_ev, plc_ev[0])) && is.null(prcp_placebo_summary(real_ev, copy(plc_ev)[, event := event + 10L])))
+check("exact_ci: Clopper-Pearson, 10 of 10 and no observations", abs(exact_ci(10, 10)[1] - 0.6915) < 1e-3 && exact_ci(10, 10)[2] == 1 && all(is.na(exact_ci(0, 0))))
+cov_sim <- interval_coverage(c(0, 0, 0, 0), c(1, 1, 1, 1), c(0, 1.5, 2.5, -1))
+check("interval_coverage: share of points inside estimate +- 1.96 SD", cov_sim == 0.75 && interval_coverage(1, -1, 1) == 1)
 check("no event in a long stationary recording", !detect_events(sim_rest(3, "young", 600)$rr, "tilt", cfg$segmentation)$detected)
 
 # 5c. protocol annotations of PRCP (.anI): parsing, protected beats, kinds, events with stand-ups, responses by kind

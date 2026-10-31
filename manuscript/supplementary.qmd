@@ -367,15 +367,16 @@ The recovery study used four scenarios: true time scales within the prior ranges
 
 ```{r}
 #| label: tbl-sim-summary
-#| tbl-colwidths: [22, 13, 4, 11, 11, 10, 10, 19]
-#| tbl-cap: "Recovery under known truth: median absolute log-error of the time constants, median correlation between reconstructed and true states, and median absolute error of the share of vagal variance, by scenario and specification."
+#| tbl-colwidths: [19, 8, 4, 9, 9, 9, 9, 13, 10, 10]
+#| tbl-cap: "Recovery under known truth: median absolute log-error of the time constants, median correlation between reconstructed and true states, median absolute error of the share of vagal variance, and share of time points at which the 95% interval of the filtered state contained the true state (conditional on the MAP parameters), by scenario and specification."
 #| echo: false
 if (!is.null(sim_recovery)) {
   x <- sim_recovery$summary[order(scenario, spec)]
   knitr::kable(data.frame(Scenario = gsub("\n", " ", unname(SCENARIO_LABELS[x$scenario])), Spec. = spec_tex(x$spec), n = x$n,
                           `Abs. error of ln $\\tau_p$` = round(x$med_abs_ln_err_tau_p, 2), `Abs. error of ln $\\tau_s$` = round(x$med_abs_ln_err_tau_s, 2),
                           `Corr. of $x_p$` = round(x$med_cor_x_p, 2), `Corr. of $x_s$` = round(x$med_cor_x_s, 2),
-                          `Abs. error of the share of $x_p$ variance` = round(x$med_abs_share_err, 2), check.names = FALSE))
+                          `Abs. error of the share of $x_p$ variance` = round(x$med_abs_share_err, 2),
+                          `Coverage of $x_p$` = sprintf("%.0f%%", 100 * x$cover_x_p), `Coverage of $x_s$` = sprintf("%.0f%%", 100 * x$cover_x_s), check.names = FALSE))
 } else cat("[PENDING: results/sim_recovery.rds]")
 ```
 
@@ -389,7 +390,7 @@ if (!is.null(sim_recovery)) {
 
 *Metrics of the multi-start fits.* Starts are drawn log-uniformly ($\tau_s$ 20–600 s; $\tau_p$ 0.5–30 s with $\tau_p < 0.8\,\tau_s$; $\lambda_R$ $10^{-4}$–$10^{-1}$; $\lambda_P$ 0.05–20 for specifications in which it is free). For each recording and specification, the following quantities were computed: (i) the number of *distinct solutions*, defined by greedy clustering of the estimates in $(\ln\tau_p, \ln\tau_s)$ with radius 0.10; (ii) the *near-equivalent fits*, defined as fits whose profiled log-likelihood lies within 2 units of the best fit, together with the dispersion of $\ln\tau_p$ and $\ln\tau_s$ and the number of distinct solutions among them; (iii) the dispersion of the reconstructed trajectories among near-equivalent fits (root-mean-square across-start SD of $x_p(t)$ and $x_s(t)$ relative to their within-trajectory SD) and their median pairwise correlation; (iv) the *share of $x_p$ variance*, $\mathrm{Var}(\hat x_p)/[\mathrm{Var}(\hat x_p)+\mathrm{Var}(\hat x_s)]$, and the proportion of fits in which one process absorbed essentially all variability (share below 0.05 or above 0.95), referred to as one-process collapse; (v) the proportion of fits whose $\tau_p$ and $\tau_s$ both lie within the 95% intervals of the time-scale priors; and (vi) the retained fit to RR (RMSE and profiled log-likelihood). Because the priors alter the objective, specifications are compared on the profiled log-likelihood and RR error, and not on the posterior objective.
 
-*Quantities recorded in the sensitivity analyses.* Using $M_3$ as the reference, each hyperparameter of the identification structure was varied one at a time (time-scale intervals, separation target and weight, timing-jitter interval, spectral crossover, sympathetic leakage and vagal floor), and each prior component was removed in turn (leave-one-out). For each variation, the log-ratio of $\tau_p$ and $\tau_s$ to the reference, the correlation and the normalized root-mean-square difference of the reconstructed states, and the change in RR error were recorded. The data-informativeness of the kinetic estimates was assessed by the position of the estimates relative to the prior (standardized distance from the prior center and the proportion within the 95% prior interval), by the posterior contraction of $\ln\tau$ ($1 - $ posterior variance / prior variance, from the Laplace approximation), and by the log-ratio of the $M_3$ and $M_0$ estimates.
+*Quantities recorded in the sensitivity analyses.* Using $M_3$ as the reference, each hyperparameter of the identification structure was varied one at a time (time-scale intervals, separation target and weight, timing-jitter interval, spectral crossover, sympathetic leakage and vagal floor), and each prior component was removed in turn (leave-one-out). For each variation, the log-ratio of $\tau_p$ and $\tau_s$ to the reference, the correlation and the normalized root-mean-square difference of the reconstructed states, and the change in RR error were recorded. The data-informativeness of the kinetic estimates was assessed by the position of the estimates relative to the prior (standardized distance from the prior center and the proportion within the 95% prior interval), by the posterior contraction of $\ln\tau$ (one minus the ratio of posterior to prior variance, from the Laplace approximation), and by the log-ratio of the $M_3$ and $M_0$ estimates.
 
 *Laplace standard deviations.* With $\mathcal{H}$ the numerical Hessian of the objective in $\theta = (\ln\kappa_s, \ln(\kappa_p - \kappa_s), \dots)$ and $\mathcal{H}^+$ its pseudo-inverse, the covariance of $(\ln\tau_s, \ln\tau_p)$ is $J\mathcal{H}^+J^\top$ with $\partial\ln\tau_s/\partial\theta_1 = -1$, $\partial\ln\tau_p/\partial\theta_1 = -\kappa_s/\kappa_p$ and $\partial\ln\tau_p/\partial\theta_2 = -(\kappa_p - \kappa_s)/\kappa_p$. Posterior contraction relative to the log-normal prior is $1 - \mathrm{Var}_{post}/\mathrm{Var}_{prior}$, with $\mathrm{Var}_{prior} = \varsigma^2$ as defined in the estimation algorithm. A negative value indicates a posterior wider than the prior; the quantity is local and approximate (Laplace) and is used descriptively.
 
@@ -412,15 +413,16 @@ if (!is.null(sim_recovery)) {
 
 ```{r}
 #| label: tbl-sens-summary
-#| tbl-colwidths: [17, 21, 5, 10, 10, 9, 9, 10, 9]
-#| tbl-cap: "Sensitivity of the $M_3$ reconstructions to the hyperparameters (median across recordings). Varied: one hyperparameter changed at a time; Removed: one prior term left out."
+#| tbl-colwidths: [15, 19, 4, 9, 9, 8, 8, 9, 8, 11]
+#| tbl-cap: "Sensitivity of the $M_3$ reconstructions to the hyperparameters (median across recordings; the last column is the absolute change in the share of latent variance attributed to the vagal-like process). Varied: one hyperparameter changed at a time; Removed: one prior term left out."
 #| echo: false
 if (!is.null(sensitivity)) {
   x <- sensitivity$summary[order(kind, setting)]
   knitr::kable(data.frame(Kind = ifelse(x$kind == "hyperparameter", "Varied", "Removed"), Setting = setting_axis_label(x$setting), n = x$n,
                           `Abs. change in ln $\\tau_p$` = round(x$med_abs_ln_tau_p, 2), `Abs. change in ln $\\tau_s$` = round(x$med_abs_ln_tau_s, 2),
                           `Corr. of $x_p$` = round(x$med_cor_x_p, 3), `Corr. of $x_s$` = round(x$med_cor_x_s, 3),
-                          `Rel. RMSD of $x_p$` = round(x$med_rel_rmsd_x_p, 2), `Rel. RMSD of $x_s$` = round(x$med_rel_rmsd_x_s, 2), check.names = FALSE))
+                          `Rel. RMSD of $x_p$` = round(x$med_rel_rmsd_x_p, 2), `Rel. RMSD of $x_s$` = round(x$med_rel_rmsd_x_s, 2),
+                          `Abs. change in the share of $x_p$ variance` = round(x$med_abs_d_share_p, 2), check.names = FALSE))
 } else cat("[PENDING: results/sensitivity.rds]")
 ```
 
@@ -540,6 +542,8 @@ All series are beat-wise and are resampled to 4 Hz by natural cubic splines befo
 *Lagged correlation.* Both series are placed on a 1-Hz grid and the centered 60-s moving mean is removed from each (the first and last 30 s are discarded). The cross-correlation is computed for lags of $\pm 30$ s, the peak absolute value and its lag are reported (a positive lag means that the second series lags the first), and a surrogate $p$-value is obtained from the peak absolute correlations of 200 circular shifts of the second series (shifts of at least 60 s), which preserve its autocorrelation. In a numerical check with a known 5-s delay, the lag was recovered and the surrogate $p$-value was below 0.05.
 
 # Secondary analyses of the perturbation {#sec-analysis-details}
+
+*Negative control for the phase contrast.* The resting baseline of each analyzed tilt (60 to 180 s long, ending at the onset) was split into two halves, and the second half was contrasted with the first as the tilt is contrasted with the baseline in the main analysis: difference of the mean of each state, in SDs of the first half, with the expected signs (decrease of $x_p$, increase of $x_s$). No maneuver separates the two halves, so any expected pattern arises from drift, noise or the construction of the contrast. Halves with fewer than 20 beats were skipped; only tilts that have both contrasts were compared. The share of events with both signs as expected is given with exact (Clopper–Pearson) 95% intervals, which are descriptive because the tilts of a recording are not independent, and the absolute standardized changes were compared between the tilt and the placebo contrast with an exact one-sided paired signed-rank test on recording medians. The baseline begins 120 s after the previous maneuver returned, so it may still contain part of the recovery from it, and the placebo share can therefore exceed the 25% expected for independent random signs.
 
 *Comparison with a CWT moving spectrum.* The temporal resolution of the reconstruction was compared with the continuous-wavelet-transform (CWT) moving band power of the heart rate (LF 0.04–0.15 Hz, HF 0.15–0.40 Hz, cone of influence masked), quantified as the time at which each series first leaves its baseline band (baseline mean $\pm 2$ SD, sustained for 5 s) relative to the tilt onset.
 

@@ -45,6 +45,28 @@ check("PRCP: an intermediate share is called partly consistent", grepl("only par
 check("Discussion sentence on the tilt pattern follows the outcome", grepl("a pattern consistent with the expected", prcp_discussion_sentence(fake_prcp(1))) && grepl("a pattern not consistent with", prcp_discussion_sentence(fake_prcp(0))))
 check("PRCP: a later sympathetic onset is described as after", grepl("a median of 10.0 s after the vagal-like", all_ok))
 
+# PRCP negative control: wording follows the intervals; absent control degrades silently
+pl_sep <- list(n_events = 40, n_recordings = 10, k_real = 39, k_placebo = 14, frac_real = 0.975, frac_placebo = 0.35, ci_real = c(0.87, 1), ci_placebo = c(0.21, 0.52),
+               abs_z_p = 1.5, abs_z_s = 9, abs_z_p_placebo = 0.2, abs_z_s_placebo = 0.9, p_paired_p = 0.0005, p_paired_s = 0.0005)
+pl_same <- modifyList(pl_sep, list(k_placebo = 38, frac_placebo = 0.95, ci_placebo = c(0.83, 0.99), p_paired_p = 0.4, p_paired_s = 0.2))
+prcp_pl <- fake_prcp(1); prcp_pl$summary$ci_both_expected <- c(0.69, 1); prcp_pl$placebo <- pl_sep
+txt_sep <- narrate_prcp(prcp_pl); prcp_pl$placebo <- pl_same; txt_same <- narrate_prcp(prcp_pl)
+check("PRCP: separated intervals say the pattern is clearly less frequent without a perturbation, overlapping intervals say it is not",
+      grepl("clearly less frequent without a perturbation", txt_sep) && grepl("not clearly less frequent", txt_same) && !grepl("not clearly", txt_sep))
+check("PRCP: counts, ratios and p-values of the control are written from the numbers", grepl("14 of 40 baselines", txt_sep) && grepl("39 of 40 tilts", txt_sep) && grepl("7.5 times larger for \\$x_p", txt_sep) &&
+        grepl("\\$p < 0.001\\$ for both", txt_sep) && grepl("\\$p = 0.400\\$ for \\$x_p\\$", txt_same) && grepl("exact 95% interval 69% to 100%", txt_sep))
+check("PRCP: without the control (older results) the sentence is omitted and nothing is pending", !grepl("negative control|PENDING", narrate_prcp(fake_prcp(1))))
+# Sensitivity: trajectories robust, apportioning conditional, numbers from the table
+fake_sens <- list(summary = data.table(kind = c("hyperparameter", "hyperparameter", "leave_one_out"), setting = c("crossover_hz=0.08", "lower_lf_vagal_fraction=0.5", "M3 without anchor"),
+                                       med_abs_ln_tau_p = c(0.1, 0.2, 1), med_abs_ln_tau_s = c(0.05, 0.1, 0.5), med_cor_x_p = c(0.99, 0.98, 0.6), med_cor_x_s = c(0.995, 0.99, 0.9),
+                                       med_abs_d_share_p = c(0.16, 0.23, 0.35)))
+sens_text <- sensitivity_sentence(fake_sens)
+check("sensitivity sentence: robust trajectories, share change from the table and the anchor-removal value",
+      grepl("correlated at least 0.98", sens_text) && grepl("0.23 at most, for the vagal floor", sens_text) && grepl("and by 0.35 when the spectral anchor was removed", sens_text) && grepl("conditional on the anchor settings", sens_text))
+share_text <- share_sensitivity_clause(fake_sens)
+check("limitations clause lists the hyperparameters that moved the vagal share by the threshold, largest first", share_text == "by a median absolute 0.10 or more with the vagal floor and the spectral crossover")
+fake_sens_flat <- fake_sens; fake_sens_flat$summary$med_abs_d_share_p <- 0.01
+check("limitations clause: no influential hyperparameter is said so", grepl("^by less than 0.10", share_sensitivity_clause(fake_sens_flat)) && share_sensitivity_clause(NULL) == "")
 # Fantasia: strong group differences vs none -----------------------------------------------------------------------------------
 fake_fantasia <- function(delta) {
   contrasts <- data.table(variable = c("Tau_P", "Tau_S", "SDNN", "RMSSD"), family = c("latent", "latent", "HRV", "HRV"), cliff_delta = delta, p_BH = ifelse(abs(delta) > 0.5, 0.01, 0.5))

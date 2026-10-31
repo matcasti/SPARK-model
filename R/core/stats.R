@@ -5,7 +5,11 @@
 #   loo_r2(), loo_auc()   leave-one-out R^2 (OLS) and AUC (logistic) with small samples
 #   km_median()        Kaplan-Meier median with right censoring
 #   icc_consistency()  ICC(3,1);   paired_comparison()   paired Wilcoxon;   spearman_table()
+#   exact_ci()         Clopper-Pearson 95% interval of a count k out of n
 # ==============================================================================
+
+#' Clopper-Pearson (exact) 95% interval of a proportion: c(lo, hi) for `k` successes out of `n`; NA when n = 0.
+exact_ci <- function(k, n) if (n > 0) unname(stats::binom.test(as.integer(k), as.integer(n))$conf.int) else c(NA_real_, NA_real_)
 
 #' Cliff's delta with a percentile bootstrap CI (x vs y; positive when x > y).
 cliffs_delta <- function(x, y, n_boot = 2000L, seed = 1L) {

@@ -16,6 +16,9 @@ RECOVERY_SCENARIOS <- list(
                               lambda_p = exp(runif(1, log(0.2), log(0.5))))     # sympathetic-dominant variance
 )
 
+#' Share of time points at which the 95% interval of a filtered state (estimate +- 1.96 SD, conditional on the MAP parameters) contains the true state.
+interval_coverage <- function(estimate, variance, truth) mean(abs(estimate - truth) <= 1.96 * sqrt(pmax(variance, 0)))
+
 #' Errors of one fit relative to the generating values.
 recovery_row <- function(fit, truth, simulated, true_share) {
   if (!isTRUE(fit$ok)) return(data.table(spec = fit$spec, ok = FALSE))
@@ -26,6 +29,7 @@ recovery_row <- function(fit, truth, simulated, true_share) {
     cor_x_p = cor(fit$X_p, simulated$x_p), cor_x_s = cor(fit$X_s, simulated$x_s),
     rmse_x_p = sqrt(mean((fit$X_p - simulated$x_p)^2)) / sd(simulated$x_p),
     rmse_x_s = sqrt(mean((fit$X_s - simulated$x_s)^2)) / sd(simulated$x_s),
+    cover_x_p = interval_coverage(fit$X_p, fit$X_p_var, simulated$x_p), cover_x_s = interval_coverage(fit$X_s, fit$X_s_var, simulated$x_s),
     share_err = fit$share_p - true_share, true_share = true_share, est_share = fit$share_p,
     rmse_rr_ms = fit$rmse_ms, LL_star = fit$LL_star,
     tau_p_true = truth$tau_p, tau_s_true = truth$tau_s, lp_true = truth$lambda_p
@@ -49,6 +53,7 @@ recovery_summarise <- function(table) {
   table[ok == TRUE, .(n = .N,
                       med_abs_ln_err_tau_p = median(abs(ln_err_tau_p)), med_abs_ln_err_tau_s = median(abs(ln_err_tau_s)),
                       med_cor_x_p = median(cor_x_p), med_cor_x_s = median(cor_x_s),
-                      med_abs_share_err = median(abs(share_err)), med_rmse_rr_ms = median(rmse_rr_ms)),
+                      med_abs_share_err = median(abs(share_err)), med_rmse_rr_ms = median(rmse_rr_ms),
+                      cover_x_p = mean(cover_x_p), cover_x_s = mean(cover_x_s)),
         by = .(scenario, spec)]
 }

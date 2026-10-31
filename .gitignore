@@ -11,6 +11,7 @@ manuscript/*.rds
 manuscript/figures
 manuscript/_site
 docs/SUBMISSION_AUDIT.md
+docs/SUBMISSION_FORM.md
 
 # Generated; rebuilt by `make run` / `make render` / `make submission`
 manuscript/*.typ

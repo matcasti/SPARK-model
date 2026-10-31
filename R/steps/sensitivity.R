@@ -112,6 +112,6 @@ sensitivity_summarise <- function(sens) {
            med_abs_ln_tau_p = median(abs(ln_ratio_tau_p)), med_abs_ln_tau_s = median(abs(ln_ratio_tau_s)),
            med_cor_x_p = median(cor_x_p), med_cor_x_s = median(cor_x_s),
            med_rel_rmsd_x_p = median(rel_rmsd_x_p), med_rel_rmsd_x_s = median(rel_rmsd_x_s),
-           med_d_rmse_ms = median(d_rmse_ms)),
+           med_abs_d_share_p = median(abs(d_share_p)), med_d_rmse_ms = median(d_rmse_ms)),
        by = .(kind, setting)]
 }
