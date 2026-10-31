@@ -93,7 +93,7 @@ check("highlights: 3 to 5 bullets of at most 85 characters", length(highlights) 
 keywords <- strsplit(sub("^\\*\\*Keywords\\*\\*: ", "", grep("^\\*\\*Keywords\\*\\*:", readLines("manuscript/manuscript.qmd", warn = FALSE), value = TRUE)), ", ")[[1]]
 check("keywords: 1 to 7", length(keywords) %in% 1:7, keywords)
 
-# GitHub Pages: the workflow deploys the branch that tools/publish_site.R pushes, and the Makefile has the targets the README names
+# GitHub Pages: the workflow deploys the branch that tools/publish_site.R pushes, and the Makefile has the publish targets
 workflow_text <- read_text(".github/workflows/pages.yml")
 publish_text <- read_text("tools/publish_site.R")
 makefile_text <- read_text("Makefile")

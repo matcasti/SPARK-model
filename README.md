@@ -29,7 +29,6 @@ data-raw/  --tools/prep-data.R-->  data/*.csv  --analysis/01 ... 13-->  results/
 | `Rscript tools/run_all.R --stale` | runs only the steps that are stale or missing |
 | `Rscript tools/run_all.R --only=05,13` | only those steps (also `--from=05`, `--to=09`, `--skip=02`, `--dry-run`) |
 | `make submission` | renders the LaTeX route (profile `latex`, keeping the `.tex`) and gathers `submission/`: `manuscript.tex` and `supplementary.tex` (pdfLaTeX), `Figure_N.pdf` / `FigureS_N.pdf`, `highlights.docx`, `manuscript.pdf` and `supplementary.pdf` (both from Typst) |
-| `make publish` | renders and force-pushes the site (HTML and PDF of both documents) to the `site` branch of `origin`; `.github/workflows/pages.yml` deploys it to GitHub Pages. `make publish-check` assembles and lists it without pushing |
 
 Each step is a script of `analysis/` that can also be run on its own once the results it reads exist (`Rscript analysis/datasets/05_prcp.R`). After each step `run_all.R` checks
 that the outputs declared in `pipeline.R` exist and were written by that run. A run leaves in `results/` its own record:
@@ -40,14 +39,6 @@ that the outputs declared in `pipeline.R` exist and were written by that run. A 
 - `sessionInfo.txt`.
 
 To compare two runs (for example before and after a change of the code): `Rscript tools/checks/compare_results.R <results_a> <results_b>`.
-
-### Sharing the rendered manuscript (GitHub Pages)
-
-The site is rendered on your machine (it needs `results/`, which is not in git) and only deployed by the workflow. One-time setup in the repository
-settings: *Pages > Source: GitHub Actions*, and *Environments > github-pages > Deployment branches*: add `site`. Then `make publish` after each `make render`
-(or each new run); the `site` branch holds a single commit that is replaced every time, so the repository does not grow with the PDFs. The workflow can also be
-started by hand (*Actions > Publish manuscript > Run workflow*). GitHub Pages sites are public, and the pages carry `noindex` so that search engines skip them while
-the article is unpublished (remove it from `manuscript/_quarto.yml` afterwards).
 
 ## Layout
 
@@ -65,7 +56,7 @@ R/            functions only, in layers (load.R loads them in this order):
   signals/      events, physiology, HRV, state summaries, landscapes
   steps/        the per-recording steps of each analysis script
   report/       notation, plots, figures, manuscript text
-tools/        prep-data.R, download-data.R, run_all.R, make_docs.R, make_submission.R, publish_site.R
+tools/        prep-data.R, download-data.R, run_all.R, make_docs.R, make_submission.R
   checks/       check_env.R, figure checks, compare_results.R, benchmark_cleaning_gate.R
 tests/        run_tests.R
   suites/       the test suites
@@ -75,7 +66,6 @@ manuscript/   manuscript.qmd, supplementary.qmd, model_code.R, figures/
   templates/    Typst and LaTeX templates
   support/      citations.bib, highlights.md
 data-raw/  data/  results/     inputs and outputs
-.github/      workflows/pages.yml: deploys the `site` branch to GitHub Pages
 ```
 
 A layer may use the layers before it, not the ones after it. `analysis/<group>/NN_*.R` scripts have the same four parts, **Load**, **Analyse every recording**, **Combine and summarise**,
