@@ -61,7 +61,7 @@ tools/        prep-data.R, download-data.R, run_all.R, make_docs.R, make_submiss
 tests/        run_tests.R
   suites/       the test suites
   fixtures/     test config, recorded reference values, synthetic-data generators
-docs/         DATAFLOW.md: scripts, reads/writes and a function index (generated: Rscript tools/make_docs.R)
+docs/         DATAFLOW.md: scripts, reads/writes and a function index (generated: Rscript tools/make_docs.R); USER_GUIDE.md: how to compare recordings
 manuscript/   manuscript.qmd, supplementary.qmd, model_code.R, figures/
   templates/    Typst and LaTeX templates
   support/      citations.bib, highlights.md
