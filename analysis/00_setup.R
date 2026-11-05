@@ -16,7 +16,7 @@ suppressPackageStartupMessages({
 })
 set.seed(cfg$seed)
 
-source(cfg$paths$engine)                                              # estimation engine (unmodified)
+source(cfg$paths$engine)                                              # estimation engine (reference implementation)
 source("R/load.R"); load_project_code()                               # every function in R/, layer by layer
 invisible(load_fast_filter(cfg))
 

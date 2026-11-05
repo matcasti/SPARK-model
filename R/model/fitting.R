@@ -3,11 +3,11 @@
 #
 #   fit_recording()   fit one recording (M3) and add the file clock and the covariates
 #   fit_dataset()     all recordings of a dataset in parallel (a failed recording is reported)
-#   fit_model_fast()  the M3 fit: BFGS on the engine objective, compiled filter when available
+#   fit_model_fast()  the M3 fit: BFGS from three starts on the engine objective, compiled filter when available
 #   as_rec()          wrap an RR vector as a recording (for simulations)
 # ==============================================================================
 
-#' M3 fit: BFGS on the negative log-posterior (compiled filter inside the optimizer when available;
+#' M3 fit: BFGS from three starts (optimize_spec) on the negative log-posterior (compiled filter inside the optimizer when available;
 #' the final pass is run by the R engine). Returns a `spark_fit`.
 fit_model_fast <- function(dy, priors = spark_priors(), control = spark_control(), verbose = FALSE) {
   dy <- as.numeric(dy[!is.na(dy)])
@@ -15,9 +15,8 @@ fit_model_fast <- function(dy, priors = spark_priors(), control = spark_control(
   series <- list(dy = dy, priors = priors, control = control)
   spec <- model_spec("M3")
 
-  optimum <- optim(default_theta(spec, series), variant_objective, dy = dy, spec = spec, priors = priors,
-                   engine_control = control, method = "BFGS", control = list(maxit = control$maxit))
-  if (!is.finite(optimum$value) || optimum$value >= 1e11) stop("Optimization failed.", call. = FALSE)
+  optimum <- optimize_spec(series, spec)
+  if (is.null(optimum) || !is.finite(optimum$value) || optimum$value >= 1e11) stop("Optimization failed.", call. = FALSE)
 
   par <- unpack_theta(optimum$par, spec, priors$energy_ratio)
   lambda_p <- priors$energy_ratio
@@ -50,7 +49,10 @@ fit_recording <- function(rec, id, tag, priors, control) {
   states[, `:=`(X_p_var = fit$states[, "X_p_var"], X_s_var = fit$states[, "X_s_var"], Implied_RR = fit$implied_rr,
                 Clock = rec$time, Time = rec$time - rec$time[1])]
   if (ncol(rec$cov)) states <- cbind(states, rec$cov)
-  list(summary = as.data.table(summarised$summary), states = states, pacf = summarised$pacf,
+  summary <- as.data.table(summarised$summary)
+  runs <- fit$opt_raw$runs                                   # objective of the three starts (default, noise_free, noisy)
+  summary[, `:=`(Start = fit$opt_raw$chosen, Start_gap = runs[1] - min(runs[is.finite(runs)]))]   # chosen start; objective of the default start above the lowest
+  list(summary = summary, states = states, pacf = summarised$pacf,
        params = fit$params, lp = fit$priors$energy_ratio, p_lf = fit$priors$p_lf, p_hf = fit$priors$p_hf)
 }
 

@@ -74,7 +74,7 @@ a within-person difference smaller than this is not interpretable.
 
 - Reference values or thresholds; a clinical diagnosis; validation against nerve activity or pharmacological blockade.
 - Independent estimates of the slow (sympathetic) time constant.
-- Smoothed estimates: the states are causal (filtered), so they lag sudden changes. In the Live section, states are provisional until about 5 minutes of recording.
+- Smoothed estimates: the states are filtered, not smoothed (the parameters and the spectral anchor use the whole recording, so the procedure is retrospective rather than strictly causal), and they lag sudden changes. In the Live section, states are provisional until about 5 minutes of recording.
 - Results from populations with overt cardiac autonomic disease (not tested).
 
 ## 7. Where to find the details

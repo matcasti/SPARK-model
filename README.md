@@ -1,7 +1,7 @@
 # SPARK analysis
 
 Reproduces every result, figure and supplementary check of the manuscript from RR-interval recordings.
-The estimation engine `engine/model_engine.R` is used **unmodified** (byte-identical to the original; checked by the tests).
+The estimation engine `engine/model_engine.R` is the reference implementation of the model; its fingerprint is recorded in `tests/fixtures/engine.md5` and checked by the tests. Since 2026-11-04 the M3 fit runs BFGS from three starting points in prior-whitened coordinates (the likelihood, priors and filter are unchanged).
 
 ## Quick start
 
@@ -45,7 +45,7 @@ To compare two runs (for example before and after a change of the code): `Rscrip
 ```
 config.R      every setting, in numbered sections (what is analysed and how)
 pipeline.R    the 13 steps as data: script, reads, writes (what runs, in which order, from what to what)
-engine/       model_engine.R (the model, unmodified), fast_filter.cpp (verified C++ port of its filter)
+engine/       model_engine.R (the model), fast_filter.cpp (verified C++ port of its filter)
 analysis/     one short script per result, numbered in run order (00_setup.R is sourced by all); each reads, calls R/steps, saves
   model/        01-04: fit, recovery under known truth, identifiability, sensitivity
   datasets/     05, 06, 09: PRCP, Fantasia, exercise cohort

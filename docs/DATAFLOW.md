@@ -47,8 +47,8 @@ Every analysis script has the same four parts: **Load**, **Analyse every recordi
 **`model/identifiability.R`**: is the latent decomposition identified by RR alone?  
 `draw_start_params`, `theta_from_start`, `run_multistart`, `count_solutions`, `trajectory_dispersion`, `ident_metrics`, `profile_surface`, `identifiability_analyse_recording`, `identifiability_summarise`
 
-**`model/model_variants.R`**: the model specifications M0-M3, built on the unmodified engine  
-`load_fast_filter`, `has_cpp`, `filter_eval`, `model_spec`, `drop_term`, `prepare_series`, `unpack_theta`, `default_theta`, `variant_objective`, `fit_variant`, `fit_specs`, `variant_hessian`
+**`model/model_variants.R`**: the model specifications M0-M3, built on the engine  
+`load_fast_filter`, `has_cpp`, `filter_eval`, `model_spec`, `drop_term`, `prepare_series`, `unpack_theta`, `default_theta`, `variant_objective`, `optimize_spec`, `fit_variant`, `fit_specs`, `variant_hessian`
 
 **`model/simulation.R`**: generative simulator of the SPARK model (OU drives -> integrate-and-fire phase) with deterministic drive profiles that mimic perturbations  
 `simulate_rr`, `prof_step`, `prof_exercise`, `drive_from_angle`, `angle_protocol`, `rsa_drive`, `sim_rest`, `sim_tilt`, `sim_tilt_angle`, `draw_exercise_pars`, `sim_exercise`
@@ -105,7 +105,7 @@ Every analysis script has the same four parts: **Load**, **Analyse every recordi
 `need`, `n_label`, `choose_example`, `example_recording`, `log_labels`, `box_points`, `figure_fit_diagnostics`, `near_equivalent_trajectories`, `figure_identifiability`, `prcp_amplitude_panel`, `prcp_timing_panels`, `prcp_lag_panel`, `prcp_dose_panel`, `figure_prcp_group`, `figure_cwt_comparison`, `figure_fantasia_groups`, `figure_exercise`, `figure_fantasia_physiology`, `figure_event_detection`, `landscape_row`, `figure_landscapes`, `figure_simulation_recovery`, `figure_sensitivity`, `figure_recovery_benchmark`, `figure_numerical_checks`, `figure_prcp_maneuvers`
 
 **`report/manuscript_text.R`**: text of the manuscript generated from the computed results  
-`PENDING`, `txt`, `guarded`, `pct`, `num`, `count_of`, `median_range_text`, `join_and`, `compare_phrase`, `minus_sign`, `fmt_fixed`, `p_math`, `fmt_p`, `label_of`, `setting_label`, `term_label`, `spec_median`, `narrate_identifiability`, `narrate_constraints`, `landscape_sentence`, `narrate_prcp`, `placebo_sentence`, `cwt_timing_sentence`, `cwt_timing_discussion`, `diagnostics_clause`, `kind_plural`, `narrate_prcp_kinds`, `kinds_limit_sentence`, `narrate_fantasia`, `narrate_exercise`, `abstract_identifiability`, `abstract_prcp`, `abstract_aging`, `abstract_exercise`, `sensitivity_sentence`, `share_sensitivity_clause`, `findings_summary`, `prcp_discussion_sentence`, `prcp_pattern_clause`, `hrv_information_sentence`, `epsilon_sentence`, `prcp_n_text`, `conclusion_identifiability`, `window_text`, `example_caption`, `stability_window_text`
+`PENDING`, `txt`, `guarded`, `pct`, `num`, `count_of`, `median_range_text`, `join_and`, `compare_phrase`, `minus_sign`, `fmt_fixed`, `p_math`, `fmt_p`, `label_of`, `setting_label`, `term_label`, `spec_median`, `narrate_identifiability`, `narrate_constraints`, `landscape_sentence`, `narrate_prcp`, `placebo_sentence`, `cwt_timing_sentence`, `cwt_timing_discussion`, `diagnostics_clause`, `kind_plural`, `narrate_prcp_kinds`, `kinds_limit_sentence`, `narrate_fantasia`, `narrate_exercise`, `abstract_identifiability`, `abstract_prcp`, `abstract_aging`, `abstract_exercise`, `sensitivity_sentence`, `share_sensitivity_clause`, `findings_summary`, `prcp_discussion_sentence`, `prcp_pattern_clause`, `hrv_information_sentence`, `start_choice_sentence`, `epsilon_sentence`, `prcp_n_text`, `conclusion_identifiability`, `window_text`, `example_caption`, `stability_window_text`
 
 **`report/plots.R`**: shared plot building blocks (ggplot2 + patchwork) used by R/report/figures.R  
 `state_labels`, `figure_palette`, `theme_spark`, `tag_panel`, `figure_grid`, `add_event_lines`, `perturbation_intervals`, `series_stack`, `event_locked`, `locked_labels`, `plot_event_locked`, `plot_state_plane`, `plot_landscape`
@@ -116,7 +116,7 @@ Every analysis script has the same four parts: **Load**, **Analyse every recordi
 ## 3. Other folders
 
 - `config.R`: every setting (seed, data folders, windows, event definitions, workload, figures). `pipeline.R`: the steps above as data.
-- `engine/`: `model_engine.R` (the estimation engine, used unmodified) and `fast_filter.cpp` (a verified C++ port of its filter).
+- `engine/`: `model_engine.R` (the estimation engine) and `fast_filter.cpp` (a verified C++ port of its filter).
 - `tools/`: `prep-data.R` (raw WFDB / text files -> CSV recordings and `data/prep_qc.csv`), `run_all.R` (the pipeline), `check_env.R`, `make_docs.R`, `check_figure_fonts.R`, `check_figure_rendering.R`.
 - `tests/`: `run_tests.R` runs the suites: `test_workflow.R` (structure and bookkeeping), `test_pipeline.R` (unit checks, optional end-to-end run), `test_narrative.R`, `test_prep.R` (`prep-data.R` on synthetic WFDB records), `test_edge_cases.R` (absent covariates); `compare_results.R` compares two `results/` folders.
 - `manuscript/`: `manuscript.qmd`, `supplementary.qmd`, `figures/`, `templates/` and `support/`. The `.qmd` files read `results/*.rds`.

@@ -35,3 +35,6 @@ data-raw/prcp/*
 !data-raw/fantasia/.gitignore
 !data-raw/prcp/SHA256SUMS.txt
 .Renviron
+
+# Experimental outputs (not part of the pipeline)
+experiments/*/_out/

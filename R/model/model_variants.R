@@ -1,5 +1,5 @@
 # ==============================================================================
-# R/model/model_variants.R -- the model specifications M0-M3, built on the unmodified engine.
+# R/model/model_variants.R -- the model specifications M0-M3, built on the engine.
 #
 # Only the objective assembly differs from the engine (its likelihood, priors and spectral
 # anchor are reused), so the engine API and its filter are untouched (the compiled filter is
@@ -8,13 +8,14 @@
 #   M0   structural constraints only (positivity, kp > ks); lambda_P free
 #   M1   + time-scale (log-normal) and separation (Beta) priors; lambda_P free
 #   M2   + spectral anchor (lambda_P fixed from the wavelet partition) only
-#   M3   M1 + M2 + timing-jitter prior (the reported model)
+#   M3   M1 + M2 + timing-jitter prior (the reported model; optimized from three starts, see optimize_spec())
 #
 # Parameter vector theta = (ln ks, ln(kp - ks), ln lambda_R, [ln lambda_P if free]).
 #
 #   model_spec()       the flags of a specification        drop_term()      leave one prior out
 #   prepare_series()   RR + priors + control, prepared once
 #   fit_variant()      BFGS fit of one specification       fit_specs()      several specifications
+#   optimize_spec()    the optimization (M3: three starts, prior-whitened coordinates; others: one start)
 #   variant_hessian()  curvature at the optimum            filter_eval()    filter (C++ or R)
 # ==============================================================================
 
@@ -124,17 +125,31 @@ variant_objective <- function(theta, dy, spec, priors, engine_control) {
 }
 
 
+# ---- Optimization ------------------------------------------------------------------------------------------------------
+#' MAP optimization of a specification, returning an optim()-like list (par = theta, value, counts, convergence).
+#' The reported model M3 (and its hyperparameter variations) uses the engine's three-start scheme in prior-whitened
+#' coordinates (.optimize_m3) unless a start `theta0` is given; every other specification, and any explicit start,
+#' keeps the single BFGS run from the engine start (the identifiability analysis supplies its own starts).
+optimize_spec <- function(series, spec, theta0 = NULL) {
+  if (is.null(theta0) && identical(spec$name, "M3")) {
+    best <- .optimize_m3(function(ks, kp, lR) variant_objective(.par_to_theta(c(ks = ks, kp = kp, lR = lR)), series$dy, spec, series$priors, series$control),
+                         series$priors, series$control)
+    if (is.null(best)) return(NULL)
+    return(list(par = unname(.par_to_theta(best$par)), value = best$value, counts = best$opt$counts, convergence = best$opt$convergence,
+                runs = best$runs, chosen = best$chosen))
+  }
+  start <- if (is.null(theta0)) default_theta(spec, series) else theta0
+  optim(start, variant_objective, dy = series$dy, spec = spec, priors = series$priors, engine_control = series$control,
+        method = "BFGS", control = list(maxit = series$control$maxit))
+}
+
+
 # ---- Fitting ----------------------------------------------------------------------------------------------------------
 #' Fit a specification by BFGS from `theta0` (default: the engine start). `ok = FALSE` on failure.
 #' @return list(ok, spec, theta, par, tau_p, tau_s, objective, LL_star, nu0, sig2, conv, iters,
 #'         rr_jitter_ms and, with `full`, the states, innovations, rmse_ms and share_p)
 fit_variant <- function(series, spec, theta0 = NULL, full = TRUE) {
-  start <- if (is.null(theta0)) default_theta(spec, series) else theta0
-  optimum <- tryCatch(
-    optim(start, variant_objective, dy = series$dy, spec = spec, priors = series$priors,
-          engine_control = series$control, method = "BFGS", control = list(maxit = series$control$maxit)),
-    error = function(e) NULL
-  )
+  optimum <- tryCatch(optimize_spec(series, spec, theta0), error = function(e) NULL)
   if (is.null(optimum) || !is.finite(optimum$value) || optimum$value >= 1e11) {
     return(list(ok = FALSE, spec = spec$name))
   }

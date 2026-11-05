@@ -4,8 +4,9 @@
 #
 # Model
 #   x_p, x_s: independent OU drives observed through the integrated IPFM phase.
-#   GLS profiles out nu0 and sigma^2; MAP estimation runs on
-#   theta = (log ks, log(kp - ks), log lR).
+#   GLS profiles out nu0 and sigma^2; the MAP objective is expressed in
+#   theta = (log ks, log(kp - ks), log lR) and minimized by BFGS in prior-whitened
+#   coordinates from three starts (default, noise-free, noisy); the lowest value is kept.
 #   lambda_P = V_p / V_s is fixed before the optimization from the logistic
 #   partition of the wavelet energy of the heart rate (spark_priors).
 #   Priors: log-normal on tau_p, tau_s and the RR timing jitter; Beta on the
@@ -448,6 +449,61 @@ run_gls_filter <- function(dy, kp, ks, lp, lR, control = spark_control()) {
   c(log(par[["ks"]]), log(par[["kp"]] - par[["ks"]]), log(par[["lR"]]))
 }
 
+# Optimization of the M3 objective: prior-whitened coordinates and three starts ----------------
+# The objective is the same negative log-posterior as above; only the geometry seen by BFGS and the
+# starting points change. Experiments on 313 recordings (and 626 shortened series) showed that a single
+# start in the log-rate coordinates ended in a worse local optimum in about 4% of the recordings.
+
+#' Prior-whitened coordinates z for the optimizer:
+#'   z1 = (ln tau_p - mu_p) / sd_p
+#'   z2 = (ln d - ln d0) / sd_d, with d = ln(tau_s / tau_p) = ln(kp / ks) > 0 (so kp > ks by construction)
+#'   z3 = ln lR
+#' where mu, sd are the log-normal prior parameters, d0 = mu_s - mu_p and sd_d = sqrt(sd_p^2 + sd_s^2) / d0.
+#' If d0 <= 0 (time-scale priors that are not ordered) the scaling of z2 falls back to d0 = 1, sd_d = 1.
+#' @return list(to = z -> c(ks, kp, lR), from = c(ks, kp, lR) -> z).
+.whitened_map <- function(priors) {
+  mu_p <- priors$log_tau_p_mu; sd_p <- priors$sigma_log_tau_p
+  mu_s <- priors$log_tau_s_mu; sd_s <- priors$sigma_log_tau_s
+  d0 <- mu_s - mu_p; sd_d <- sqrt(sd_p^2 + sd_s^2) / d0
+  if (!is.finite(d0) || d0 <= 0 || !is.finite(sd_d)) { d0 <- 1; sd_d <- 1 }
+  list(
+    to = function(z) {
+      ltp <- mu_p + sd_p * z[1]; d <- exp(log(d0) + sd_d * z[2])
+      c(ks = exp(-(ltp + d)), kp = exp(-ltp), lR = exp(z[3]))
+    },
+    from = function(par) {
+      c((-log(par[["kp"]]) - mu_p) / sd_p, (log(log(par[["kp"]] / par[["ks"]])) - log(d0)) / sd_d, log(par[["lR"]]))
+    })
+}
+
+#' The three starting points (physical ks, kp, lR) of the M3 optimization:
+#'   default     the centers of the time-scale priors (the former single start);
+#'   noise_free  tau_p 12 s, tau_s 160 s, lR 1e-6 (observation noise negligible);
+#'   noisy       tau_p 25 s, tau_s 150 s, lR 0.3 (observation noise dominant).
+#' The last two cover the two ends of the noise-to-signal ratio, which spans several orders of magnitude.
+.m3_starts <- function(priors, control) {
+  list(default    = c(ks = priors$ks_mode, kp = priors$ks_mode + max(priors$kp_mode - priors$ks_mode, control$kp_gap_floor), lR = control$lR_start),
+       noise_free = c(ks = 1 / 160, kp = 1 / 12, lR = 1e-6),
+       noisy      = c(ks = 1 / 150, kp = 1 / 25, lR = 0.3))
+}
+
+#' Minimize `objective(ks, kp, lR)` (negative log-posterior in physical coordinates) by BFGS from each of the
+#' three starts, in the whitened coordinates, and keep the lowest value; among values within 0.01 of the lowest the
+#' earliest start is kept (BFGS stops with a tolerance of about 1e-4 in this objective, so runs that reach the same optimum
+#' differ by round-off and the choice must not depend on it). Runs that fail or return 1e11 or more are discarded.
+#' @return list(par = c(ks, kp, lR), value, opt = the optim() result of the chosen run, runs = values of the three runs,
+#'         chosen = name of the chosen start), or NULL if every run failed.
+.optimize_m3 <- function(objective, priors, control) {
+  W <- .whitened_map(priors)
+  fz <- function(z) { p <- W$to(z); objective(p[["ks"]], p[["kp"]], p[["lR"]]) }
+  fits <- lapply(.m3_starts(priors, control), function(start)
+    tryCatch(optim(par = W$from(start), fn = fz, method = "BFGS", control = list(maxit = control$maxit)), error = function(e) NULL))
+  values <- vapply(fits, function(o) if (is.null(o) || !is.finite(o$value) || o$value >= 1e11) Inf else o$value, numeric(1))
+  if (!any(is.finite(values))) return(NULL)
+  chosen <- which(values <= min(values) + 0.01)[1]
+  list(par = W$to(fits[[chosen]]$par), value = values[[chosen]], opt = fits[[chosen]], runs = values, chosen = names(fits)[chosen])
+}
+
 #' Log-prior terms (up to constants) at a filter result `res`.
 #'
 #' Log-normal on tau_s, tau_p and RR jitter; Beta on topology.
@@ -484,7 +540,7 @@ objective_map <- function(theta, dy, priors, control) {
 }
 
 # Fit ---------------------------------------------------------------------------
-#' Fit SPARK by MAP (BFGS, single start).
+#' Fit SPARK by MAP (BFGS from three starts in prior-whitened coordinates; the lowest objective is kept).
 #'
 #' @param dy RR intervals (s); NAs are dropped.
 #' @param priors `spark_priors` object (V_p/V_s is added from the CWT).
@@ -497,22 +553,15 @@ fit_model <- function(dy, priors = spark_priors(), control = spark_control(), ve
   dy <- as.numeric(dy[!is.na(dy)])
   priors <- extract_spectral_priors(dy, priors, verbose = verbose)
 
-  theta0 <- c(log(priors$ks_mode),
-              log(max(priors$kp_mode - priors$ks_mode, control$kp_gap_floor)),
-              log(control$lR_start))
+  if (verbose) cat("\nRunning 3D BFGS (M3) from three starts in prior-whitened coordinates...\n")
+  best <- .optimize_m3(function(ks, kp, lR) objective_map(.par_to_theta(c(ks = ks, kp = kp, lR = lR)), dy, priors, control), priors, control)
+  if (is.null(best)) stop("Optimization failed.", call. = FALSE)
+  opt_res <- best$opt
+  opt_res$par <- .par_to_theta(best$par); opt_res$value <- best$value
+  opt_res$runs <- best$runs; opt_res$chosen <- best$chosen
+  if (verbose) cat(sprintf("  objective %.3f (conv %d; start %s; runs %s)\n", best$value, opt_res$convergence, best$chosen, paste(sprintf("%.3f", best$runs), collapse = ", ")))
 
-  if (verbose) cat("\nRunning 3D BFGS (M3) from a single start...\n")
-  opt_err <- NULL
-  opt_res <- tryCatch(
-    optim(par = theta0, fn = function(th) objective_map(th, dy, priors, control),
-          method = "BFGS", control = list(maxit = control$maxit)),
-    error = function(e) { opt_err <<- conditionMessage(e); NULL }
-  )
-  if (is.null(opt_res) || !is.finite(opt_res$value))
-    stop("Optimization failed", if (!is.null(opt_err)) paste0(": ", opt_err) else ".", call. = FALSE)
-  if (verbose) cat(sprintf("  objective %.3f (conv %d)\n", opt_res$value, opt_res$convergence))
-
-  par <- .theta_to_par(opt_res$par)
+  par <- best$par
   Vp  <- priors$energy_ratio
   final_res <- run_gls_filter(dy, kp = par[["kp"]], ks = par[["ks"]], lp = Vp,
                               lR = par[["lR"]], control = control)

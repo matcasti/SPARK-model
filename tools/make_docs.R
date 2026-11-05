@@ -49,7 +49,7 @@ for (layer in PROJECT_LAYERS) {
 fixed_sections <- c(
   "## 3. Other folders", "",
   "- `config.R`: every setting (seed, data folders, windows, event definitions, workload, figures). `pipeline.R`: the steps above as data.",
-  "- `engine/`: `model_engine.R` (the estimation engine, used unmodified) and `fast_filter.cpp` (a verified C++ port of its filter).",
+  "- `engine/`: `model_engine.R` (the estimation engine) and `fast_filter.cpp` (a verified C++ port of its filter).",
   "- `tools/`: `prep-data.R` (raw WFDB / text files -> CSV recordings and `data/prep_qc.csv`), `run_all.R` (the pipeline), `check_env.R`, `make_docs.R`, `check_figure_fonts.R`, `check_figure_rendering.R`.",
   "- `tests/`: `run_tests.R` runs the suites: `test_workflow.R` (structure and bookkeeping), `test_pipeline.R` (unit checks, optional end-to-end run), `test_narrative.R`, `test_prep.R` (`prep-data.R` on synthetic WFDB records), `test_edge_cases.R` (absent covariates); `compare_results.R` compares two `results/` folders.",
   "- `manuscript/`: `manuscript.qmd`, `supplementary.qmd`, `figures/`, `templates/` and `support/`. The `.qmd` files read `results/*.rds`.",

@@ -489,8 +489,13 @@ abstract_prcp <- function(prcp) guarded("results/prcp.rds", {
 abstract_aging <- function(fantasia) guarded("results/fantasia.rds", {
   g <- table(fantasia$table$Group)
   latent <- fantasia$contrasts[is.finite(fantasia$contrasts$cliff_delta) & fantasia$contrasts$family == "latent", ]
-  big <- latent[abs(latent$cliff_delta) >= NARRATIVE$effect_size, ]
-  sprintf("between %d young and %d older adults, %d of %d partly redundant latent summaries reached $|\\delta| \\geq %s$", g[["young"]], g[["older"]], nrow(big), nrow(latent), NARRATIVE$effect_size)
+  big <- latent$variable[abs(latent$cliff_delta) >= NARRATIVE$effect_size]
+  variability <- any(big %in% c("sd_x_p", "sd_x_s", "Sigma_sys2"))      # amplitude summaries
+  kinetics    <- any(big %in% "Tau_P")                                   # fast-component time constant
+  what <- c(if (variability) "reconstructed variability", if (kinetics) "faster-component kinetics")
+  differences <- if (length(what)) paste0("showed differences in ", paste(what, collapse = " and "))
+                 else "showed no latent summary with a medium or larger effect size"
+  sprintf("exploratory comparisons between %d young and %d older adults %s, although several latent summaries were mathematically redundant", g[["young"]], g[["older"]], differences)
 })
 
 abstract_exercise <- function(exercise) guarded("results/exercise.rds", {
@@ -574,6 +579,17 @@ hrv_information_sentence <- function(fantasia, hrv_results = NULL) guarded("resu
   paste0("In the Fantasia recordings, HRV metrics predicted the latent summaries with a median leave-one-out $R^2$ of ", num(r2),
          if (is.finite(r2) && r2 < 0.5) ", so that a substantial part of their variation was not linearly recoverable from SDNN, RMSSD and mean heart rate" else
            ", so that most of their variation was linearly recoverable from SDNN, RMSSD and mean heart rate in this sample", ".")
+})
+
+#' Which of the three starts of the M3 optimization gave the reported optimum (supplementary, estimation algorithm).
+#' `Start_gap` is the objective of the default start above the lowest of the three runs.
+start_choice_sentence <- function(population) guarded("results/df_population_summary.rds", {
+  gap <- population$Start_gap; ok <- is.finite(gap); n <- sum(ok); better <- ok & gap > 0.01
+  base <- paste0("The default start reached the lowest objective (within 0.01) in ", count_of(n - sum(better), n), " recordings")
+  if (!any(better)) return(paste0(base, "."))
+  chosen <- table(population$Start[better])
+  paste0(base, "; in the other ", sum(better), " (", pct(sum(better) / n), "), ", join_and(sprintf("%d from the %s start", as.integer(chosen), sub("_", "-", names(chosen), fixed = TRUE))),
+         ", the lowest objective was below that of the default start by a median of ", num(median(gap[better]), 1), " (range ", num(min(gap[better]), 1), " to ", num(max(gap[better]), 1), ").")
 })
 
 epsilon_sentence <- function(checks) guarded("results/supp_checks.rds", {

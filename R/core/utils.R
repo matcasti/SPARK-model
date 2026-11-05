@@ -64,13 +64,17 @@ with_seed <- function(seed, expr) {
 
 # ---- Parallel map over recordings ---------------------------------------------------
 #' lapply over `X`, in parallel when `cores > 1` (not on Windows). An error in one
-#' item does not stop the others: that item becomes a "spark_error" string (see is_err()).
+#' item does not stop the others: that item becomes a "spark_error" string (see is_err()). An item whose worker died
+#' (no result delivered) is run again once in the calling process.
 map_recordings <- function(X, FUN, cores = 1L, ...) {
   safe_FUN <- function(x) {
     tryCatch(FUN(x, ...), error = function(e) structure(conditionMessage(e), class = "spark_error"))
   }
   if (cores > 1L && .Platform$OS.type != "windows") {
-    parallel::mclapply(X, safe_FUN, mc.cores = cores, mc.preschedule = FALSE)
+    out <- parallel::mclapply(X, safe_FUN, mc.cores = cores, mc.preschedule = FALSE)
+    lost <- which(vapply(out, is.null, logical(1)))        # a worker died without delivering (a crash in compiled code): retry in this process
+    for (i in lost) out[[i]] <- safe_FUN(X[[i]])
+    out
   } else {
     lapply(X, safe_FUN)
   }

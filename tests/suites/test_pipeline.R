@@ -28,13 +28,35 @@ for (g in gold$filters) {
 }
 ps <- prepare_series(dy, pri, ctl); sp <- model_spec("M3")
 fe <- fit_model(dy, pri, ctl, verbose = FALSE); fv <- fit_variant(ps, sp); ff <- fit_model_fast(dy, pri, ctl)
-check("engine fit_model reproduces the recorded M3 fit", max(abs(c(fe$params$ks, fe$params$kp, fe$params$nu0, fe$LL_star) / c(gold$fit$ks, gold$fit$kp, gold$fit$nu0, gold$fit$LL) - 1)) < 1e-4)
+check("engine fit_model reproduces the recorded M3 fit (the same optimum, reached by a different path: BFGS tolerance)", max(abs(c(fe$params$ks, fe$params$kp, fe$params$nu0, fe$LL_star) / c(gold$fit$ks, gold$fit$kp, gold$fit$nu0, gold$fit$LL) - 1)) < 2e-3)
 check("fit_variant(M3) reproduces the engine estimates", max(abs(c(fe$params$ks, fe$params$kp, fe$params$nu0) / c(fv$par$ks, fv$par$kp, fv$nu0) - 1)) < 1e-3)
 check("fit_model_fast reproduces the engine estimates", max(abs(c(fe$params$ks, fe$params$kp, fe$params$nu0) / c(ff$params$ks, ff$params$kp, ff$params$nu0) - 1)) < 1e-3)
 check("M3 optimum: the objective does not decrease in any coordinate direction", all(vapply(seq_along(fv$theta), function(i) { th <- fv$theta; th[i] <- th[i] - 0.05; th2 <- fv$theta; th2[i] <- th2[i] + 0.05
   variant_objective(th, ps$dy, sp, ps$priors, ps$control) >= fv$objective - 1e-6 && variant_objective(th2, ps$dy, sp, ps$priors, ps$control) >= fv$objective - 1e-6 }, logical(1))))
 check("the engine default vagal floor fraction is 0.25 and the spectral anchor matches the record", spark_priors()$lower_lf_vagal_fraction == 0.25 && abs(ps$priors$energy_ratio - gold$energy_ratio) < 1e-8)
 check("engine file is byte-identical to the recorded version", unname(tools::md5sum(cfg$paths$engine)) == trimws(readLines("tests/fixtures/engine.md5")[1]))
+# 2b. M3 optimization: prior-whitened coordinates and three starts
+W <- .whitened_map(ps$priors); par0 <- c(ks = 1 / 160, kp = 1 / 12, lR = 1e-3)
+check("whitened coordinates are an invertible map that keeps kp > ks", max(abs(W$to(W$from(par0)) / par0 - 1)) < 1e-12 && all(vapply(list(c(-3, -3, 0), c(0, 0, 0), c(4, 6, -8)), function(z) { p <- W$to(z); p[["kp"]] > p[["ks"]] }, TRUE)))
+check("the three starts are valid (kp > ks) and the first is the former single start", all(vapply(.m3_starts(ps$priors, ps$control), function(s) s[["kp"]] > s[["ks"]], TRUE)) &&
+      isTRUE(all.equal(unname(.par_to_theta(.m3_starts(ps$priors, ps$control)$default)), unname(default_theta(sp, ps)))))
+flat <- .optimize_m3(function(ks, kp, lR) 0, ps$priors, ps$control)
+check("equivalent runs (values within 0.01) keep the earliest start", flat$chosen == "default")
+hard <- jsonlite::fromJSON("tests/fixtures/hard1499.json"); psh <- prepare_series(hard, pri, ctl)
+single <- optim(default_theta(sp, psh), variant_objective, dy = psh$dy, spec = sp, priors = psh$priors, engine_control = psh$control, method = "BFGS")$value
+fh <- fit_variant(psh, sp, full = FALSE); fhe <- fit_model(hard, pri, ctl, verbose = FALSE); fhf <- fit_model_fast(hard, pri, ctl)
+check(sprintf("a step series on which the former single start ended in a local optimum: the three starts reach a lower objective (%.1f vs %.1f)", fh$objective, single), single - fh$objective > 10)
+check("the engine, fit_variant and fit_model_fast agree on that series", abs(fhe$opt_raw$value - fh$objective) < 1e-3 && abs(fhf$opt_raw$value - fh$objective) < 1e-3)
+fh_single <- fit_variant(psh, sp, theta0 = default_theta(sp, psh), full = FALSE)
+check("an explicit start theta0 keeps the single run (identifiability analyses)", abs(fh_single$objective - single) < 1e-6)
+
+# 2c. a parallel worker that dies without delivering is retried in the calling process
+if (.Platform$OS.type != "windows") {
+  main_pid <- Sys.getpid()
+  got <- map_recordings(1:4, function(x) { if (x == 2 && Sys.getpid() != main_pid) tools::pskill(Sys.getpid(), 9L); x * 10 }, cores = 2L)
+  check("map_recordings retries an item whose worker died", identical(unlist(got), c(10, 20, 30, 40)))
+}
+
 # 3. nested specifications behave as defined
 fs <- fit_specs(ps, c("M0", "M1", "M2", "M3"), full = FALSE)
 check("all specifications fit", all(vapply(fs, function(f) isTRUE(f$ok), TRUE)))
