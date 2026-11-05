@@ -91,10 +91,16 @@ check("PRCP by kind: without protocol annotations (one kind or none) there is no
 check("PRCP by kind: the limitation sentence gives the events per kind and the maximum per recording", grepl("20 slow tilts, 20 rapid tilts, 18 stand-ups", kinds_limit_sentence(kinds_fake)) && grepl("at most 2 events", kinds_limit_sentence(kinds_fake)))
 check("no 'NA', 'Inf' or 'NaN' tokens in the generated text", !any(grepl("(^|[^A-Za-z])(NA|Inf|NaN)([^A-Za-z]|$)", all_text)))
 check("setting labels are readable", setting_label("tau_p_bounds=narrow") == "the $\\tau_p$ prior interval (narrow)" && term_label("M3 without anchor") == "the spectral anchor")
-cat(sprintf("\n%d narrative checks passed.\n", n_pass))
 
 # M3 optimization: which start gave the reported optimum ------------------------------------------------------------
 pop <- data.frame(Start = c("default", "default", "noisy", "noise_free", "noise_free"), Start_gap = c(0, 0.001, 50, 10, 30))
 check("start choice: counts the recordings in which another start was lower", grepl("reached the lowest objective \\(within 0.01\\) in 2 of 5", start_choice_sentence(pop)) && grepl("in the other 3 \\(60%\\)", start_choice_sentence(pop)))
 check("start choice: names the starts that won and the gain", grepl("1 from the noisy start", start_choice_sentence(pop)) && grepl("2 from the noise-free start", start_choice_sentence(pop)) && grepl("median of 30.0 \\(range 10.0 to 50.0\\)", start_choice_sentence(pop)))
 check("start choice: no gain is reported when the default always wins", start_choice_sentence(data.frame(Start = "default", Start_gap = 0)) == "The default start reached the lowest objective (within 0.01) in 1 of 1 recordings.")
+
+# Negative control of the tilt: what the placebo share says about drift --------------------------------------------------
+check("placebo share: an interval above 25% suggests drift", grepl("suggests slow drift", expected_by_chance(c(0.30, 0.50))))
+check("placebo share: an interval that contains 25% does not demonstrate drift", grepl("possible but is not demonstrated", expected_by_chance(c(0.19, 0.49))) && !grepl("suggests slow drift", expected_by_chance(c(0.19, 0.49))))
+check("placebo share: an interval below 25% is reported as such", grepl("below the 25%", expected_by_chance(c(0.05, 0.20))))
+
+cat(sprintf("\n%d narrative checks passed.\n", n_pass))

@@ -125,10 +125,6 @@ narrate_identifiability <- function(ident) guarded("results/identifiability.rds"
   value <- function(spec, column) spec_median(m, spec, column)
   collapse <- function(spec) mean(m$collapse_frac[m$spec == spec], na.rm = TRUE)
   n_recordings <- length(unique(m$SubjectID))
-  per_spec <- function(spec) sprintf(
-    "a median of %s distinct solutions per recording and %s fits within 2 log-likelihood units of the best; among those, the SD of $\\ln\\tau_s$ was %s, the share of $x_p$ variance spanned a range of %s, and one process absorbed essentially all variability in %s of the fits",
-    num(value(spec, "n_solutions"), 1), num(value(spec, "n_equiv"), 1), num(value(spec, "sd_ln_tau_s_equiv")),
-    num(value(spec, "share_p_range_equiv")), pct(collapse(spec)))
 
   more_dispersed <- value("M0", "sd_ln_tau_s_equiv") > value("M3", "sd_ln_tau_s_equiv") * (1 + NARRATIVE$similar_rel) ||
     value("M0", "n_solutions") > value("M3", "n_solutions") * (1 + NARRATIVE$similar_rel) ||
@@ -152,14 +148,14 @@ narrate_identifiability <- function(ident) guarded("results/identifiability.rds"
            "premise then rests on the remaining analyses.")
   }
   paste0(
-    "Without physiological information ($M_0$; ", n_recordings, " recordings), the multi-start fits of a recording reached ", per_spec("M0"),
-    ". Under the full specification ($M_3$), the corresponding values were: ", per_spec("M3"), ". ",
-    "The number of distinct solutions per recording under $M_3$ was ", compare_phrase(value("M3", "n_solutions"), value("M0", "n_solutions")), " that under $M_0$ (median ",
-    num(value("M3", "n_solutions"), 1), " versus ", num(value("M0", "n_solutions"), 1), "), and one process absorbed essentially all variability in ", pct(collapse("M3")), " versus ", pct(collapse("M0")), " of the fits. ",
-    "The dispersion of $\\ln\\tau_s$ among near-equivalent fits under $M_3$ was ", compare_phrase(value("M3", "sd_ln_tau_s_equiv"), value("M0", "sd_ln_tau_s_equiv")),
-    " that under $M_0$", if (length(larger_in)) paste0(" (larger under $M_0$ in ", count_of(length(larger_in), length(datasets)), " datasets: ", join_and(larger_in), ")") else "",
+    "Without physiological information ($M_0$; ", n_recordings, " recordings), the multi-start fits of a recording reached a median of ", num(value("M0", "n_solutions"), 1),
+    " distinct solutions, with ", num(value("M0", "n_equiv"), 1), " fits within 2 log-likelihood units of the best, and one process absorbed essentially all variability in ", pct(collapse("M0")),
+    " of the fits. Under the full specification ($M_3$), the corresponding values were ", num(value("M3", "n_solutions"), 1), " distinct solutions, ", num(value("M3", "n_equiv"), 1), " near-equivalent fits and one-process absorption in ",
+    pct(collapse("M3")), " of the fits. The dispersion of $\\ln\\tau_s$ among near-equivalent fits under $M_3$ was ", compare_phrase(value("M3", "sd_ln_tau_s_equiv"), value("M0", "sd_ln_tau_s_equiv")),
+    " that under $M_0$ (", num(value("M3", "sd_ln_tau_s_equiv")), " versus ", num(value("M0", "sd_ln_tau_s_equiv")),
+    if (length(larger_in)) paste0("; larger under $M_0$ in ", count_of(length(larger_in), length(datasets)), " datasets: ", join_and(larger_in)) else "", ")",
     if (small_both) "; it was small under both specifications, so the contrast rests mainly on the number of distinct solutions and on one-process solutions" else "",
-    ". The best RR error under $M_3$ was ", compare_phrase(value("M3", "best_rmse_ms"), value("M0", "best_rmse_ms")), " that under $M_0$ (median ",
+    ". The best RR error under $M_3$ was ", compare_phrase(value("M3", "best_rmse_ms"), value("M0", "best_rmse_ms")), " that under $M_0$ (",
     num(value("M3", "best_rmse_ms")), " versus ", num(value("M0", "best_rmse_ms")), " ms",
     if (is.finite(ratio) && ratio > 1 + NARRATIVE$similar_rel) paste0("; a factor of ", num(ratio, 1), ", small in absolute terms but not in relative terms") else "", "). ", consequence)
 })
@@ -186,7 +182,7 @@ narrate_constraints <- function(ident, sensitivity = NULL, sim_recovery = NULL, 
     "The median SD of $\\ln\\tau_s$ among near-equivalent fits was ",
     paste(sprintf("%s for $%s$", num(dispersion), sub("M", "M_", specs)), collapse = ", "), " (lowest under $", sub("M", "M_", lowest),
     "$). The best RR error differed by at most ", num(diff(range(rmse))), " ms (", pct(rmse_gap), ") between specifications, and the share of fits with both time constants inside the ",
-    "95% prior intervals was ", pct(in_range[["M0"]]), " for $M_0$ and ", pct(in_range[["M3"]]), " for $M_3$. One process absorbed essentially all variability in ",
+    "95% prior intervals was ", join_and(sprintf("%s for $%s$", pct(in_range[specs]), sub("M", "M_", specs))), ". One process absorbed essentially all variability in ",
     join_and(sprintf("%s under $%s$", pct(collapse_by), sub("M", "M_", specs))), " of the fits.", anchor_role)
 
   if (!is.null(sensitivity)) {
@@ -304,6 +300,14 @@ narrate_prcp <- function(prcp, part = c("main", "supplement")) guarded("results/
 
 #' Negative control of the tilt analysis (prcp_placebo_summary()): the expected pattern in the halves of the resting baseline versus in the tilts, and the size of the changes.
 #' The wording follows the intervals: "clearly lower" only when the upper end of the placebo interval lies below the lower end of the tilt interval.
+#' What the placebo share says about drift: two independent random signs give the expected pattern in 25% of the baselines.
+expected_by_chance <- function(ci) {
+  if (!all(is.finite(ci))) return("")
+  if (ci[1] > 0.25) " A placebo share above the 25% expected for two independent random signs suggests slow drift within the baseline."
+  else if (ci[2] < 0.25) " A placebo share below the 25% expected for two independent random signs suggests that the two halves of a baseline are not independent."
+  else " The 25% expected for two independent random signs lies within this interval, so slow drift within the baseline is possible but is not demonstrated."
+}
+
 placebo_sentence <- function(pl) {
   if (is.null(pl)) return("")
   guarded("results/prcp.rds (negative control)", {
@@ -315,7 +319,7 @@ placebo_sentence <- function(pl) {
            "; the median absolute standardized change was ", ratio(pl$abs_z_p, pl$abs_z_p_placebo), " times larger for $x_p$ and ", ratio(pl$abs_z_s, pl$abs_z_s_placebo),
            " times larger for $x_s$ during the tilt (exact paired signed-rank test over ", pl$n_recordings, " recordings, one-sided: ",
            if (identical(p_math(pl$p_paired_p), p_math(pl$p_paired_s))) paste0(p_math(pl$p_paired_p), " for both") else paste0(p_math(pl$p_paired_p), " for $x_p$ and ", p_math(pl$p_paired_s), " for $x_s$"),
-           "). A placebo share above the 25% expected for two independent random signs suggests slow drift within the baseline.")
+           ").", expected_by_chance(pl$ci_placebo))
   })
 }
 
@@ -453,7 +457,7 @@ narrate_exercise <- function(exercise, hrv_results = NULL) guarded("results/exer
     median_range_text(exercise$rest_response$z_d_x_p, 1), " and the sympathetic-like state by ", median_range_text(exercise$rest_response$z_d_x_s, 1), " rest SDs, with a heart-rate increase of ",
     median_range_text(exercise$rest_response$d_hr, 0), " bpm (median [2.5th, 97.5th percentile] across recordings). Recovery times (", words_for(as.character(s$recovery_definition), RECOVERY_DEFINITION_TEXT), "; Kaplan-Meier medians) were ", recovery_text,
     ".", recovery_note, " The path in the state plane had a median length of ", median_range_text(exercise$geometry$path_length, 0), ", an enclosed area of ", median_range_text(exercise$geometry$loop_area, 0),
-    " and a maximum energy $U$ of ", median_range_text(exercise$geometry$U_max, 0), " in rest-SD units.")
+    " and a maximum energy $E$ of ", median_range_text(exercise$geometry$U_max, 0), " in rest-SD units.")
   if (!is.null(exercise$landscape_modes)) text <- paste0(text, " ", landscape_sentence(exercise$landscape_modes, "rest"))
   if (!is.null(hrv_results) && !is.null(hrv_results$loo_r2)) {
     loo <- as.data.frame(hrv_results$loo_r2)
