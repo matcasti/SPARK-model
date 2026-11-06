@@ -1,0 +1,14 @@
+# EXPERIMENTAL (round 2). The recommended regime model (2 regimes, reciprocity prior, gate, retrospective smoothing) on an exercise and a PRCP recording: heart rate, regime probability (filtered and
+# smoothed) and the vagal-like and sympathetic-like states under M3 and under the regime model (GPB1 + RTS). PRCP: dashed lines are the annotated onsets and returns. -> experiments/regimes/v2/_out/figure.png
+source("analysis/00_setup.R"); source("experiments/regimes/v2/lib2.R"); suppressMessages(library(ggplot2)); suppressMessages(library(patchwork)); ev_ann <- fread("data/prcp_events.csv")
+panel_set <- function(dy, title, annot = NULL) { series <- prepare_series(dy); dy <- series$dy; tt <- cumsum(dy); base <- fit_ext(series); cp <- cp_search(series, base, min_gain = -Inf); h <- fit_regime(series, 2, cp, base, 7, 0.7, recip = 20); r <- h$run(smooth = TRUE); Ws <- regime_smooth(r$W, r$A, h$p$Pi); e <- state_estimates(base, TRUE)
+  hr <- data.table(t = tt, y = 60 / dy); pw <- rbind(data.table(t = tt, y = rowSums(r$W[, -1, drop = FALSE]), kind = "filtered"), data.table(t = tt, y = Ws[, 2], kind = "smoothed"))
+  st <- rbind(data.table(t = tt, y = e$xp, panel = "Vagal-like state (Hz)", model = "M3 (RTS)"), data.table(t = tt, y = r$Xs_p, panel = "Vagal-like state (Hz)", model = "HMM (RTS)"), data.table(t = tt, y = e$xs, panel = "Sympathetic-like state (Hz)", model = "M3 (RTS)"), data.table(t = tt, y = r$Xs_s, panel = "Sympathetic-like state (Hz)", model = "HMM (RTS)"))
+  v <- if (!is.null(annot)) geom_vline(xintercept = annot, linetype = "dashed", colour = "grey50", linewidth = 0.3) else NULL; th <- theme_minimal(base_size = 9)
+  g1 <- ggplot(hr, aes(t, y)) + geom_line(linewidth = 0.4) + labs(title = paste0(title, ": heart rate (bpm)"), x = NULL, y = NULL) + th + v
+  g2 <- ggplot(pw, aes(t, y, colour = kind)) + geom_line(linewidth = 0.4) + scale_colour_manual(values = c(filtered = "grey60", smoothed = "#c1121f")) + labs(title = "P(non-reference regime)", x = NULL, y = NULL, colour = NULL) + th + v
+  gs <- function(nm) ggplot(st[panel == nm], aes(t, y, colour = model)) + geom_line(linewidth = 0.4) + scale_colour_manual(values = c("M3 (RTS)" = "#b8860b", "HMM (RTS)" = "#c1121f")) + labs(title = nm, x = "Time (s)", y = NULL, colour = NULL) + th + v
+  (g1 / g2 / gs("Vagal-like state (Hz)") / gs("Sympathetic-like state (Hz)")) & theme(legend.position = "bottom") }
+d <- load_dataset("exercise", cfg); p1 <- panel_set(d$rr[["001"]], "Exercise 001")
+dp <- load_dataset("prcp", cfg); rid <- "12734"; off <- dp$rec[[rid]]$time[1] - dp$rec[[rid]]$rr[1]; a1 <- ev_ann[as.character(ev_ann$id) == rid]; ann <- c(a1$onset_s, a1$return_s[is.finite(a1$return_s)]) - off; p2 <- panel_set(dp$rr[[rid]], "PRCP 12734 (dashed: annotated onsets and returns)", ann)
+ggsave("experiments/regimes/v2/_out/figure.png", p1 | p2, width = 13, height = 8.5, dpi = 150); cat("figure written\n")

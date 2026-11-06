@@ -440,6 +440,22 @@ narrate_fantasia <- function(fantasia, hrv_results = NULL, part = c("main", "sup
 })
 
 
+#' Comparable quantities (supplement): variability in physical units, kinetics and heart rate, young vs older, with the agreement between windows.
+narrate_comparable <- function(fantasia) guarded("results/fantasia.rds", {
+  cm <- fantasia$comparable
+  if (is.null(cm) || !nrow(cm)) return("")
+  r <- function(v) cm[cm$variable == v, ]
+  sp <- r("Sd_P_bpm"); ss <- r("Sd_S_bpm"); tp <- r("Tau_P")
+  text <- paste0("The stationary SD of the vagal-like drive was ", num(sp$median2, 1), " bpm (equivalent) in older and ", num(sp$median1, 1), " in young adults (Cliff's $\\delta$ = ", num(sp$cliff_delta, 2),
+                 "), that of the sympathetic-like drive ", num(ss$median2, 1), " and ", num(ss$median1, 1), " bpm ($\\delta$ = ", num(ss$cliff_delta, 2), "), and the vagal time constant ", num(tp$median2, 1), " and ",
+                 num(tp$median1, 1), " s ($\\delta$ = ", num(tp$cliff_delta, 2), "). ")
+  icc <- setNames(cm$icc_log, cm$variable)
+  if (any(is.finite(icc))) text <- paste0(text, "Between two windows of the same recording (ICC of the log values) the agreement was ", num(icc[["Sd_P_bpm"]]), " for the vagal-like SD, ", num(icc[["Sd_S_bpm"]]),
+                                          " for the sympathetic-like SD, ", num(icc[["Tau_P"]]), " for $\\tau_p$ and ", num(icc[["Tau_S"]]), " for $\\tau_s$. ")
+  paste0(text, "These are descriptive comparisons of ", sp$n1, " young and ", sp$n2, " older adults; a net tone computed from an age-based intrinsic rate would differ between the groups by construction of the formula, not from the data.")
+})
+
+
 # ---- Result 5: exercise ----------------------------------------------------------------------------------------------------------------
 narrate_exercise <- function(exercise, hrv_results = NULL) guarded("results/exercise.rds", {
   s <- exercise$summary

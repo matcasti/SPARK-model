@@ -6,6 +6,7 @@
 #   fit_step_response()  x(t) = x0 + D (1 - exp(-(t - t_on)/tau)): onset, time constant, amplitude
 #   recovery_metrics()   recovery time under several candidate definitions (RECOVERY_DEFINITIONS)
 #   path_geometry()      length, loop area and energy of the (x_p, x_s) path
+#   stationary_sd()      model-implied SDs of the two drives (Hz); comparable_indices(): the quantities that are comparable across people and times
 # ==============================================================================
 
 
@@ -154,4 +155,34 @@ path_geometry <- function(t, x_p, x_s, sd_p, sd_s, smooth_s = 5) {
   data.table(path_length = sum(step_length), loop_area = area, max_dist = max(sqrt(u^2 + v^2)),
              U_max = max(energy), U_mean = mean(energy),
              tortuosity = sum(step_length) / max(sqrt((u - u[1])^2 + (v - v[1])^2)))
+}
+
+
+# ---- Quantities that are comparable across people and times -------------------------------------------------------------------
+# nu0, mu_p and mu_s enter the likelihood only through nu0 - mu_p + mu_s, so RR intervals alone do not identify the tonic level of either branch.
+# What is identified, in physical units, is the stationary variability of each drive (SD), the time scales and the mean rate. The net tone
+# (sympathetic minus vagal) needs an external anchor, the intrinsic heart rate, here the age formula of Jose and Collison (1970) for adults;
+# it is a population mean with an individual error of the order of `band_bpm`, and it is NOT a measurement of either branch.
+INTRINSIC_RATE <- list(intercept_bpm = 118.1, slope_bpm_per_year = 0.57, band_bpm = 8, age_range = c(18, 100))
+
+#' Intrinsic heart rate (bpm) for an age in years: 118.1 - 0.57 * age. NA outside the adult range 18-100.
+intrinsic_rate_bpm <- function(age) {
+  ifelse(is.finite(age) & age >= INTRINSIC_RATE$age_range[1] & age <= INTRINSIC_RATE$age_range[2],
+         INTRINSIC_RATE$intercept_bpm - INTRINSIC_RATE$slope_bpm_per_year * age, NA_real_)
+}
+
+#' Stationary SD (Hz) of the vagal-like and sympathetic-like drives: sqrt(lambda_P sigma^2) and sqrt(sigma^2).
+#' `params` has lp (lambda_P) and sig2 (sigma^2); vectorised over their elements.
+stationary_sd <- function(params) list(p = sqrt(params$lp * params$sig2), s = sqrt(params$sig2))
+
+#' One row of comparable quantities for a fit: mean heart rate (bpm, from the RR intervals), the stationary SDs of the two drives in Hz
+#' and as bpm equivalents (x 60), the time constants (s) and, if an age is given, the intrinsic rate and the net tone (mean rate minus intrinsic
+#' rate, bpm; negative: vagal dominance) with its nominal band. `dy`: RR intervals (s); `params`: lp, sig2, kp, ks.
+comparable_indices <- function(dy, params, age = NA_real_) {
+  sd <- stationary_sd(params)
+  hr <- 60 / mean(dy)
+  intrinsic <- intrinsic_rate_bpm(age)
+  data.table(Hr_bpm = hr, Sd_P_Hz = sd$p, Sd_S_Hz = sd$s, Sd_P_bpm = 60 * sd$p, Sd_S_bpm = 60 * sd$s,
+             Tau_P = 1 / params$kp, Tau_S = 1 / params$ks,
+             Intrinsic_bpm = intrinsic, Net_tone_bpm = hr - intrinsic, Net_tone_band_bpm = if (is.finite(intrinsic)) INTRINSIC_RATE$band_bpm else NA_real_)
 }

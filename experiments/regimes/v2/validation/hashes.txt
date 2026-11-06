@@ -1,0 +1,10 @@
+47e2f346aee4c8d12dbf1a55e7a435f7  experiments/regimes/lib.R
+110aa8fe72b768c4714b7807bcd64ba8  experiments/regimes/reg_filter.cpp
+cd0cced413f283d7ecfb22b3af555472  experiments/regimes/v2/lib2.R
+11afa30282803faeb8770b6fdc696dba  experiments/regimes/v2/reg2_filter.cpp
+269f0246908532dc9cf86c1a7e710949  experiments/regimes/v2/reg3_filter.cpp
+848ba2b5cd81c5f580356b39dd86f0da  experiments/m3plus/lib.R
+154a6b674d6d089ec5e882837c81e67f  experiments/m3plus/ext_filter.cpp
+601225fa84195d63c67ae144a10b8005  experiments/regimes/v2/validation/protocol.md
+80772c15c65b31f88ed7f05948f0aaaf  experiments/regimes/v2/validation/run.R
+a1d198c4689737a9d02b088e616a9fa0  experiments/regimes/v2/validation/ids.txt

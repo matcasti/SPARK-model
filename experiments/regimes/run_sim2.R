@@ -1,0 +1,19 @@
+# EXPERIMENTAL. Tuning of the two knobs of the gated 2-regime HMM: the gate (minimum log-likelihood gain of the change-point search, here recorded for every simulation so that any threshold can be applied afterwards)
+# and the persistence prior of the regimes (stay logit prior 5, 7, 9). Run from the project root:  Rscript experiments/regimes/run_sim2.R
+source("analysis/00_setup.R"); source("experiments/regimes/lib.R")
+n_cores <- max(1L, min(5L, cfg$cores - 2L)); N <- 60L
+score <- function(est, var, truth) c(rmse = sqrt(mean((est - truth)^2)) / sd(truth), cover = mean(abs(est - truth) <= 1.96 * sqrt(pmax(var, 0))))
+one <- function(job) {
+  z <- sim_regime(job$scenario, job$seed); s <- z$s; series <- prepare_series(s$rr); dy <- series$dy; tt <- cumsum(dy); base <- fit_ext(series); cp <- cp_search(series, base, min_gain = -Inf); e <- state_estimates(base, FALSE)
+  rows <- list(data.table(variant = "M3", stay = NA_real_, gain = if (is.null(cp)) NA_real_ else cp$gain, rmse_p = score(e$xp, e$xpv, s$x_p)[["rmse"]], rmse_s = score(e$xs, e$xsv, s$x_s)[["rmse"]], cover_p = score(e$xp, e$xpv, s$x_p)[["cover"]], cover_s = score(e$xs, e$xsv, s$x_s)[["cover"]], onsets = 0))
+  if (!is.null(cp)) for (sp in c(5, 7, 9)) { h <- fit_regime(series, 2, cp, base, stay_prior = sp); if (!isTRUE(h$ok)) next; r <- h$run()
+    rows[[length(rows) + 1]] <- data.table(variant = "HMM2", stay = sp, gain = cp$gain, rmse_p = score(r$X_p, r$X_p_var, s$x_p)[["rmse"]], rmse_s = score(r$X_s, r$X_s_var, s$x_s)[["rmse"]], cover_p = score(r$X_p, r$X_p_var, s$x_p)[["cover"]], cover_s = score(r$X_s, r$X_s_var, s$x_s)[["cover"]], onsets = length(regime_onsets(r$W, tt))) }
+  rbindlist(rows)[, `:=`(scenario = job$scenario, sim = job$sim)] }
+jobs <- unlist(lapply(c("regime", "exercise", "two", "rest"), function(sc) lapply(seq_len(N), function(i) list(scenario = sc, sim = i, seed = id_seed(paste("regimes", sc, i), cfg$seed)))), recursive = FALSE)
+res <- rbindlist(drop_failed(map_recordings(jobs, one, n_cores), "simulation")); dir.create("experiments/regimes/_out", showWarnings = FALSE); saveRDS(res, "experiments/regimes/_out/sim2.rds")
+cat("\nChange-point gain (log-likelihood units) by scenario: quantiles\n"); print(res[variant == "M3", .(q10 = round(quantile(gain, .1, na.rm = TRUE), 1), q25 = round(quantile(gain, .25, na.rm = TRUE), 1), median = round(median(gain, na.rm = TRUE), 1), q75 = round(quantile(gain, .75, na.rm = TRUE), 1), max = round(max(gain, na.rm = TRUE), 1)), by = scenario], row.names = FALSE)
+m3 <- res[variant == "M3", .(scenario, sim, gain, v0 = rmse_p, s0 = rmse_s, cp0 = cover_p, cs0 = cover_s)]; h <- merge(res[variant == "HMM2"], m3[, .(scenario, sim, v0, s0, cp0, cs0)], by = c("scenario", "sim"))
+out <- rbindlist(lapply(c(3, 5, 7, 10, 15), function(th) { x <- merge(m3, h[, .(scenario, sim, stay, rmse_p, rmse_s, onsets)], by = c("scenario", "sim"), allow.cartesian = TRUE); x[, open := is.finite(gain.x) & gain.x >= th]
+  x[, `:=`(vp = ifelse(open, rmse_p, v0), vs = ifelse(open, rmse_s, s0), on = ifelse(open, onsets, 0))]; x[, .(gate_open = round(100 * mean(open), 1), rmse_vagal_vs_M3 = round(100 * (mean(vp) / mean(v0) - 1)), rmse_symp_vs_M3 = round(100 * (mean(vs) / mean(s0) - 1)), onsets = round(mean(on), 2)), by = .(scenario, stay)][, threshold := th] }), fill = TRUE)
+cat("\nGated HMM2 relative to M3 (%), by gate threshold and persistence prior:\n"); print(dcast(out, threshold + stay ~ scenario, value.var = c("rmse_symp_vs_M3", "gate_open"))[order(threshold, stay)], row.names = FALSE)
+cat("\nMean over the four scenarios (vagal, symp RMSE vs M3 in %) and onsets in 'two':\n"); print(out[, .(vagal = round(mean(rmse_vagal_vs_M3)), symp = round(mean(rmse_symp_vs_M3)), onsets_two = onsets[scenario == "two"], open_rest = gate_open[scenario == "rest"]), by = .(threshold, stay)][order(threshold, stay)], row.names = FALSE)

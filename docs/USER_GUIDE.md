@@ -25,6 +25,8 @@ a within-person difference smaller than this is not interpretable.
 | Baseline rate ν₀ (Overview card "Baseline rate ν₀", = ν₀ × 60; not the mean heart rate) | 0.99 | 1.5% | data | Comparable |
 | Overall amplitude σ²_sys (parameter report) | 0.90 | 44% | data | Comparable (SDNN and RMSSD describe the same thing) |
 | SD of x_p and of x_s (per-beat CSV) | 0.91 / 0.82 | 17% / 34% | data (amplitude) | Comparable |
+| Stationary SD of the drives, SD_S = √σ²_sys and SD_P = √(λ_P σ²_sys) (parameter table, Hz; × 60 = bpm equivalent) | 0.90 / 0.95 | 22% / 15% | data (amplitude); their ratio is the anchor | Comparable; the variability amplitudes that separate young from older adults most clearly (Cliff's δ −0.71 and −0.86); not tonic levels |
+| Net tone (sympathetic minus vagal; needs the age in Settings → Data → Person) = mean heart rate − intrinsic rate of the age formula | as the heart rate (0.99) | as the heart rate | **assumption**: population formula, individual error about ±8 bpm | Only within an age-conditional design; adds nothing to the heart rate within one age and is not a measure of either branch |
 | V_P / V_S (λ_P) | 0.81 | 23% | **is the spectral anchor** (from the recording's wavelet spectrum) | Comparable as a spectral summary |
 | τ Parasympathetic (τ_p) | 0.88 | 15% | partly data; 81% of estimates fall outside the prior | With caution: a "fast time constant" that can absorb baroreflex-range oscillations; not a vagal constant |
 | Split between drives (share of x_p variance, SD ratio, κ_P/κ_S, σ_P/σ_S) | 0.8–0.9 | variable | **conditional on the anchor and priors** (κ_P > κ_S is enforced) | Within one design only, after the sensitivity check (section 4) |
@@ -74,6 +76,7 @@ a within-person difference smaller than this is not interpretable.
 
 - Reference values or thresholds; a clinical diagnosis; validation against nerve activity or pharmacological blockade.
 - Independent estimates of the slow (sympathetic) time constant.
+- Absolute vagal or sympathetic tone: ν₀, μ_P and μ_S enter the likelihood only through ν₀ − μ_P + μ_S, so RR intervals alone do not identify the tonic level of either branch (see `experiments/absolute/`: a tone proportional to the variability reproduces a group contrast but not individual differences and gives implausible magnitudes). The comparable quantities are the variability amplitudes, the time constants and the heart rate; a split into two levels would need pharmacological blockade.
 - Smoothed estimates: the states are filtered, not smoothed (the parameters and the spectral anchor use the whole recording, so the procedure is retrospective rather than strictly causal), and they lag sudden changes. In the Live section, states are provisional until about 5 minutes of recording.
 - Results from populations with overt cardiac autonomic disease (not tested).
 

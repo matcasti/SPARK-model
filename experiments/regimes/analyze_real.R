@@ -1,0 +1,19 @@
+# EXPERIMENTAL. Tables of the real-data regime experiment (reads experiments/regimes/_out/real.rds). The gated HMM2g uses the change-point gain of the recording (>= gate) to decide between HMM2 and M3.
+suppressMessages(library(data.table)); options(width = 220)
+x <- readRDS("experiments/regimes/_out/real.rds"); res <- x$res; held <- x$held; GATE <- x$gate
+g <- unique(res[, .(ds, id, gain)]); m3 <- res[model == "M3"]; h2 <- merge(res[model == "HMM2"], g[, .(ds, id)], by = c("ds", "id"))
+open_ids <- g[gain >= GATE, .(ds, id)]; use_h <- h2[open_ids, on = c("ds", "id"), nomatch = NULL]; need_m3 <- g[!(paste(ds, id) %in% paste(use_h$ds, use_h$id)), .(ds, id)]
+gated <- rbind(use_h, m3[need_m3, on = c("ds", "id"), nomatch = NULL], fill = TRUE)
+gated[, model := "HMM2g"]; all <- rbind(res, gated, fill = TRUE); all[, n_par_eff := n_par]; all[model == "HMM2g" & paste(ds, id) %in% paste(need_m3$ds, need_m3$id), n_par_eff := 5]
+all[, aic := 2 * dLL - 2 * (n_par_eff - 5)]; ord <- c("M3", "M3E_det", "CP", "HMM2", "HMM2g")
+cat(sprintf("Recordings: %d (exercise %d, fantasia %d, prcp %d); gate = %g log-likelihood units\n", uniqueN(res$id), uniqueN(res[ds == "exercise", id]), uniqueN(res[ds == "fantasia", id]), uniqueN(res[ds == "prcp", id]), GATE))
+cat("\nGate (change-point gain >= gate) opens in:\n"); print(g[, .(open_pct = round(100 * mean(gain >= GATE, na.rm = TRUE), 1), gain_median = round(median(gain, na.rm = TRUE), 1), gain_q90 = round(quantile(gain, .9, na.rm = TRUE), 1)), by = ds], row.names = FALSE)
+cat("\n== Fit by dataset: KS pass %, PACF violations, dLL vs M3 (median), AIC-better %, tau_p median and % inside its prior ==\n")
+print(all[model %in% ord, .(n = .N, ks_pass = round(100 * mean(ks_ok), 1), pacf = round(mean(pacf), 1), dLL = round(median(dLL), 1), aic_better = round(100 * mean(aic > 0), 1), tau_p = round(median(tau_p), 1), tau_p_in_prior = round(100 * mean(tau_p >= 3 & tau_p <= 6), 1)), by = .(ds, model)][order(ds, match(model, ord))], row.names = FALSE)
+cat("\n== Exercise realism (time to 50% of the rest-to-end-of-exercise change): vagal faster than sympathetic, expected signs ==\n")
+print(all[ds == "exercise" & model %in% ord & is.finite(t50_vagal), .(n = .N, t50_vagal = round(median(t50_vagal), 1), t50_symp = round(median(t50_symp, na.rm = TRUE), 1), pct_vagal_faster = round(100 * mean(t50_vagal < t50_symp, na.rm = TRUE), 1), pct_expected_signs = round(100 * mean(d_vagal < 0 & d_symp > 0), 1), d_symp_Hz = round(median(d_symp), 3), d_vagal_Hz = round(median(d_vagal), 3)), by = model][order(match(model, ord))], row.names = FALSE)
+cat("\n== PRCP: annotated onsets, and all annotated changes (onsets and returns), found within 30 s; detections with no annotated change near ==\n")
+print(all[ds == "prcp" & model %in% ord, .(recordings = .N, annotated_onsets = sum(n_annot), onsets_found = sum(hits), onset_pct = round(100 * sum(hits) / sum(n_annot)), annotated_changes = sum(n_changes), changes_found = sum(hits_any), changes_pct = round(100 * sum(hits_any) / sum(n_changes)), detections = sum(n_onsets), no_annotation_near = sum(false_alarms)), by = model][order(match(model, ord))], row.names = FALSE)
+cat("\n== Held-out forward score (fit first 70%, last 30% scored with the fitted parameters; regimes inferred online): HMM2 minus M3, nats per beat ==\n")
+h <- merge(held, g, by = c("ds", "id")); h[, `:=`(d_ungated = hmm_tail - m3_tail, d_gated = ifelse(is.finite(gain_head) & gain_head >= GATE & is.finite(hmm_tail), hmm_tail - m3_tail, 0))]
+print(h[, .(n = .N, ungated_mean = round(mean(d_ungated, na.rm = TRUE), 3), ungated_better_pct = round(100 * mean(d_ungated > 0, na.rm = TRUE), 1), gated_mean = round(mean(d_gated), 3), gated_better_pct_of_open = round(100 * mean(d_gated[d_gated != 0] > 0), 1), open_pct = round(100 * mean(d_gated != 0), 1), p_gated = signif(tryCatch(wilcox.test(d_gated[d_gated != 0], mu = 0)$p.value, error = function(e) NA), 2)), by = ds], row.names = FALSE)

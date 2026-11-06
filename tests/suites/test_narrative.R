@@ -77,8 +77,15 @@ strong <- narrate_fantasia(fake_fantasia(c(-0.8, 0.6, -0.9, -0.7))); weak <- nar
 check("Fantasia: differences above the threshold are listed with direction", grepl("reached", strong) && grepl("lower in older adults", strong) && grepl("higher in older adults", strong))
 check("Fantasia: no difference is reported as none", grepl("none of the 2 latent", weak) && !grepl("lower in older", weak))
 
+# Comparable quantities (supplement) --------------------------------------------------------------------------------------------
+cmp_fake <- list(comparable = data.table(variable = c("mean_hr", "Sd_P_bpm", "Sd_S_bpm", "Tau_P", "Tau_S"), n1 = 20L, n2 = 18L, median1 = c(62, 4.6, 2.6, 3.2, 165), median2 = c(58, 1.6, 1.1, 5.4, 167),
+                                         cliff_delta = c(-0.3, -0.85, -0.7, 0.8, -0.05), cliff_lo = -0.5, cliff_hi = 0.1, icc_log = c(NA, 0.6, 0.55, 0.7, 0.2)))
+cmp_text <- narrate_comparable(cmp_fake)
+check("comparable quantities: the SDs by group, the effect sizes and the window agreement are reported, with the descriptive caveat",
+      grepl("4.6 in young adults", cmp_text) && grepl("1.6 bpm \\(equivalent\\) in older", cmp_text) && grepl("-0.85|−0.85", cmp_text) && grepl("0.60 for the vagal-like SD", cmp_text) && grepl("0.20 for \\$\\\\tau_s\\$", cmp_text) && grepl("of 20 young and 18 older adults", cmp_text) && grepl("by construction of the formula", cmp_text))
+check("comparable quantities: nothing to report without the table", narrate_comparable(list(comparable = NULL)) == "")
 # Missing optional inputs never break the text and no "NA" / "Inf" leaks ------------------------------------------------------------
-all_text <- c(ambiguous, unambiguous, all_ok, none_ok, mixed, strong, weak)
+all_text <- c(ambiguous, unambiguous, all_ok, none_ok, mixed, strong, weak, cmp_text)
 # PRCP: responses by type of maneuver ----------------------------------------------------------------------------------
 kinds_fake <- list(by_kind = data.table(kind = c("slow tilt", "rapid tilt", "stand-up"), n_events = c(20L, 20L, 18L), n_recordings = 10L, frac_both_expected = c(1, 0.95, 0.89),
                                         z_d_x_p_med = c(-1, -2, -3), z_d_x_s_med = c(5, 6, 7)),

@@ -71,7 +71,7 @@ Every analysis script has the same four parts: **Load**, **Analyse every recordi
 `resample_series`, `spectrum_spans`, `smoothed_spectrum`, `tilt_events`, `angle_levels`, `plateau_means`, `xcorr_surrogate`, `resp_frequency`, `resp_coupling`, `brs_alpha`, `bp_summary`
 
 **`signals/state_summaries.R`**: summaries of the reconstructed latent states  
-`to_grid`, `phase_summary`, `fit_step_response`, `recovery_setup`, `recovery_time`, `recovery_metrics`, `path_geometry`
+`to_grid`, `phase_summary`, `fit_step_response`, `recovery_setup`, `recovery_time`, `recovery_metrics`, `path_geometry`, `intrinsic_rate_bpm`, `stationary_sd`, `comparable_indices`
 
 ### `R/steps/`: the per-recording steps of each analysis script
 
@@ -85,7 +85,7 @@ Every analysis script has the same four parts: **Load**, **Analyse every recordi
 `exercise_settings`, `exercise_define_events`, `exercise_rest_response`, `exercise_recovery`, `exercise_analyse_recording`, `exercise_km_table`, `exercise_definition_agreement`, `exercise_summarise`
 
 **`steps/fantasia.R`**: Result 4: young vs older adults (Fantasia), stability of the representation, and respiration / blood-pressure context  
-`fantasia_latent_row`, `fantasia_summary_table`, `fantasia_group_contrasts`, `fantasia_incremental_info`, `fantasia_window_fit`, `fantasia_stability`, `respiratory_coupling_row`, `blood_pressure_row`, `fantasia_physiology_row`, `fantasia_physiology_table`, `fantasia_physiology_analysis`
+`fantasia_latent_row`, `fantasia_summary_table`, `fantasia_group_contrasts`, `fantasia_incremental_info`, `fantasia_window_fit`, `fantasia_stability`, `respiratory_coupling_row`, `blood_pressure_row`, `fantasia_physiology_row`, `fantasia_physiology_table`, `fantasia_physiology_analysis`, `fantasia_comparable`
 
 **`steps/hrv_comparators.R`**: conventional HRV (mean HR, SDNN, RMSSD, LF/HF) as comparators of the latent summaries  
 `latent_summary_row`, `hrv_recording_table`, `phase_events`, `hrv_phase_table`, `hrv_latent_associations`, `hrv_loo_r2_table`, `hrv_response_associations`
@@ -105,7 +105,7 @@ Every analysis script has the same four parts: **Load**, **Analyse every recordi
 `need`, `n_label`, `choose_example`, `example_recording`, `log_labels`, `box_points`, `figure_fit_diagnostics`, `near_equivalent_trajectories`, `figure_identifiability`, `prcp_amplitude_panel`, `prcp_timing_panels`, `prcp_lag_panel`, `prcp_dose_panel`, `figure_prcp_group`, `figure_cwt_comparison`, `figure_fantasia_groups`, `figure_exercise`, `figure_fantasia_physiology`, `figure_event_detection`, `landscape_row`, `figure_landscapes`, `figure_simulation_recovery`, `figure_sensitivity`, `figure_recovery_benchmark`, `figure_numerical_checks`, `figure_prcp_maneuvers`
 
 **`report/manuscript_text.R`**: text of the manuscript generated from the computed results  
-`PENDING`, `txt`, `guarded`, `pct`, `num`, `count_of`, `median_range_text`, `join_and`, `compare_phrase`, `minus_sign`, `fmt_fixed`, `p_math`, `fmt_p`, `label_of`, `setting_label`, `term_label`, `spec_median`, `narrate_identifiability`, `narrate_constraints`, `landscape_sentence`, `narrate_prcp`, `expected_by_chance`, `placebo_sentence`, `cwt_timing_sentence`, `cwt_timing_discussion`, `diagnostics_clause`, `kind_plural`, `narrate_prcp_kinds`, `kinds_limit_sentence`, `narrate_fantasia`, `narrate_exercise`, `abstract_identifiability`, `abstract_prcp`, `abstract_aging`, `abstract_exercise`, `sensitivity_sentence`, `share_sensitivity_clause`, `findings_summary`, `prcp_discussion_sentence`, `prcp_pattern_clause`, `hrv_information_sentence`, `start_choice_sentence`, `epsilon_sentence`, `prcp_n_text`, `conclusion_identifiability`, `window_text`, `example_caption`, `stability_window_text`
+`PENDING`, `txt`, `guarded`, `pct`, `num`, `count_of`, `median_range_text`, `join_and`, `compare_phrase`, `minus_sign`, `fmt_fixed`, `p_math`, `fmt_p`, `label_of`, `setting_label`, `term_label`, `spec_median`, `narrate_identifiability`, `narrate_constraints`, `landscape_sentence`, `narrate_prcp`, `expected_by_chance`, `placebo_sentence`, `cwt_timing_sentence`, `cwt_timing_discussion`, `diagnostics_clause`, `kind_plural`, `narrate_prcp_kinds`, `kinds_limit_sentence`, `narrate_fantasia`, `narrate_comparable`, `narrate_exercise`, `abstract_identifiability`, `abstract_prcp`, `abstract_aging`, `abstract_exercise`, `sensitivity_sentence`, `share_sensitivity_clause`, `findings_summary`, `prcp_discussion_sentence`, `prcp_pattern_clause`, `hrv_information_sentence`, `start_choice_sentence`, `epsilon_sentence`, `prcp_n_text`, `conclusion_identifiability`, `window_text`, `example_caption`, `stability_window_text`
 
 **`report/plots.R`**: shared plot building blocks (ggplot2 + patchwork) used by R/report/figures.R  
 `state_labels`, `figure_palette`, `theme_spark`, `tag_panel`, `figure_grid`, `add_event_lines`, `perturbation_intervals`, `series_stack`, `event_locked`, `locked_labels`, `plot_event_locked`, `plot_state_plane`, `plot_landscape`

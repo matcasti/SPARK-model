@@ -273,6 +273,26 @@ check("choose_example: an unknown id warns and falls back to the largest", {
   r <- withCallingHandlers(choose_example(scores, "zzz"), warning = function(w) invokeRestart("muffleWarning")); r$id == "b" })
 check("figure settings are in config.R", all(c("format", "dpi", "base_size", "example", "palette", "landscape") %in% names(cfg$figures)))
 
+# 12. Quantities that are comparable across people: stationary SDs, intrinsic rate, net tone
+check("intrinsic rate: 118.1 - 0.57 age for adults, NA outside 18-100 or when missing",
+      isTRUE(all.equal(intrinsic_rate_bpm(c(27.5, 76.5, 10, 101, NA)), c(102.425, 74.495, NA, NA, NA))))
+cmp_params <- list(lp = 2, sig2 = 0.01, kp = 0.25, ks = 0.005)
+check("stationary SDs are sqrt(lambda_P sigma^2) and sqrt(sigma^2)", isTRUE(all.equal(unlist(stationary_sd(cmp_params)), c(p = sqrt(0.02), s = 0.1))))
+ci <- comparable_indices(dy, cmp_params, age = 40)
+check("comparable indices: mean rate from the RR, SDs in Hz and bpm, time constants, net tone with its band",
+      isTRUE(all.equal(ci$Hr_bpm, 60 / mean(dy))) && isTRUE(all.equal(ci$Sd_P_bpm, 60 * sqrt(0.02))) && isTRUE(all.equal(ci$Sd_S_bpm, 6)) && isTRUE(all.equal(c(ci$Tau_P, ci$Tau_S), c(4, 200))) &&
+      isTRUE(all.equal(ci$Net_tone_bpm, 60 / mean(dy) - 95.3)) && ci$Net_tone_band_bpm == 8)
+check("comparable indices: without an age the net tone is not computed", all(is.na(comparable_indices(dy, cmp_params)[, .(Intrinsic_bpm, Net_tone_bpm, Net_tone_band_bpm)])))
+check("the fitted model's drive SDs satisfy sd_p / sd_s = sqrt(lambda_P) and sd_s^2 = sigma^2",
+      isTRUE(all.equal(stationary_sd(ff$params)$p / stationary_sd(ff$params)$s, sqrt(ff$params$lp))) && isTRUE(all.equal(stationary_sd(ff$params)$s^2, ff$params$sig2)))
+set.seed(4); fake_tab <- data.table(Group = factor(rep(c("young", "older"), each = 6), levels = c("young", "older")), mean_hr = rnorm(12, 65, 4), Sd_P_Hz = c(runif(6, 0.06, 0.09), runif(6, 0.02, 0.04)),
+                                    Sd_S_Hz = c(runif(6, 0.03, 0.05), runif(6, 0.015, 0.025)), Tau_P = c(runif(6, 2, 4), runif(6, 4, 7)), Tau_S = runif(12, 100, 200))
+fake_stab <- data.table(variable = c("Tau_P", "Tau_S"), icc_log = c(0.7, 0.2)); attr(fake_stab, "comparable") <- data.table(variable = c("Sd_P_Hz", "Sd_S_Hz"), icc_log = c(0.8, 0.75))
+fc <- fantasia_comparable(fake_tab, fake_stab, list(stats = list(n_boot = 50L)))
+check("Fantasia comparable table: five quantities, group medians in bpm equivalents, window agreement attached, no p-values",
+      nrow(fc) == 5 && all(c("median1", "median2", "cliff_delta", "icc_log") %in% names(fc)) && !any(grepl("^p", names(fc))) && isTRUE(all.equal(fc[variable == "Sd_P_bpm", median1], 60 * median(fake_tab$Sd_P_Hz[1:6]))) &&
+      isTRUE(all.equal(fc[variable == "Sd_S_bpm", icc_log], 0.75)) && isTRUE(all.equal(fc[variable == "Tau_P", icc_log], 0.7)) && is.na(fc[variable == "mean_hr", icc_log]))
+
 if (nzchar(Sys.getenv("SPARK_E2E"))) {
   log_msg("End-to-end run of all scripts on synthetic data...")
   system2("Rscript", "tests/fixtures/make_synthetic_data.R")

@@ -28,6 +28,7 @@ fantasia_latent_row <- function(id, fits) {
     SubjectID = id, Nu_0 = summary$Nu_0, Tau_P = summary$Tau_P, Tau_S = summary$Tau_S,
     lambda_P = params$lp, Sigma_sys2 = summary$Sigma_sys2,
     rr_jitter_ms = params$rr_jitter_ms, sd_x_p = sqrt(var_p), sd_x_s = sqrt(var_s),
+    Sd_P_Hz = stationary_sd(params)$p, Sd_S_Hz = stationary_sd(params)$s,       # model-implied stationary SDs (not in the contrast families)
     sd_ratio = sqrt(var_p / var_s), log_kappa_ratio = log(params$kp / params$ks),
     share_p = var_p / (var_p + var_s)
   )
@@ -102,7 +103,7 @@ fantasia_stability <- function(ids, dataset, cfg) {
   a <- rbindlist(fits_a[both_ok])
   b <- rbindlist(fits_b[both_ok])
 
-  agreement <- function(variable) {
+  agreement <- function(variable, a, b) {
     log_a <- log(a[[variable]]); log_b <- log(b[[variable]])
     finite <- is.finite(log_a) & is.finite(log_b)
     data.table(variable = variable, n = sum(finite),
@@ -110,8 +111,12 @@ fantasia_stability <- function(ids, dataset, cfg) {
                icc_log = icc_consistency(log_a[finite], log_b[finite]),
                rel_change_median = median(abs(b[[variable]][finite] - a[[variable]][finite]) / abs(a[[variable]][finite])))
   }
-  stability <- rbindlist(lapply(setdiff(names(a), "SubjectID"), agreement))
+  stability <- rbindlist(lapply(setdiff(names(a), "SubjectID"), agreement, a = a, b = b))
   stability[, family := ifelse(variable %in% c("SDNN", "RMSSD", "LF_HF"), "HRV", "latent")]
+  # Agreement of the model-implied stationary SDs (functions of lambda_P and sigma^2): kept apart from `stability` (Figure 3C and the text above summarise its rows)
+  derived <- function(x) copy(x)[, `:=`(Sd_P_Hz = sqrt(lambda_P * Sigma_sys2), Sd_S_Hz = sqrt(Sigma_sys2))]
+  da <- derived(a); db <- derived(b)
+  attr(stability, "comparable") <- rbindlist(lapply(c("Sd_P_Hz", "Sd_S_Hz"), agreement, a = da, b = db))
   stability[]
 }
 
@@ -188,4 +193,23 @@ fantasia_physiology_analysis <- function(table, cfg) {
   associations <- spearman_table(table, present(c("alpha_LF", "alpha_HF", "resp_sd_x_p", "f_resp")),
                                  c("tau_p", "tau_s", "lambda_P", "sd_x_p", "sd_x_s", "share_p", "RMSSD"))
   list(contrasts = contrasts, tests = tests, associations = associations)
+}
+
+
+# ---- Comparable quantities by group -----------------------------------------------------------------------------------------------
+#' Descriptive comparison of the quantities that are comparable across people (older vs young): mean heart rate (bpm), stationary SDs of
+#' the two drives (bpm equivalents), time constants; medians and Cliff's delta with bootstrap interval, plus the agreement between two
+#' windows (ICC of the log values) for the SDs when the stability analysis exists. No p-values: descriptive.
+fantasia_comparable <- function(table, stability, cfg) {
+  tab <- copy(table)[, `:=`(Sd_P_bpm = 60 * Sd_P_Hz, Sd_S_bpm = 60 * Sd_S_Hz)]
+  variables <- c("mean_hr", "Sd_P_bpm", "Sd_S_bpm", "Tau_P", "Tau_S")
+  contrasts <- rbindlist(lapply(variables, function(v) group_contrast(tab, v, n_boot = cfg$stats$n_boot)), fill = TRUE)
+  contrasts <- contrasts[, .(variable, n1, n2, median1, median2, cliff_delta, cliff_lo, cliff_hi)]
+  icc <- data.table(variable = c("mean_hr", "Sd_P_bpm", "Sd_S_bpm", "Tau_P", "Tau_S"), icc_log = NA_real_)
+  if (!is.null(stability)) {
+    st <- as.data.table(stability); cmp <- attr(stability, "comparable")
+    icc[variable == "Tau_P", icc_log := st[variable == "Tau_P", icc_log]]; icc[variable == "Tau_S", icc_log := st[variable == "Tau_S", icc_log]]
+    if (!is.null(cmp)) { icc[variable == "Sd_P_bpm", icc_log := cmp[variable == "Sd_P_Hz", icc_log]]; icc[variable == "Sd_S_bpm", icc_log := cmp[variable == "Sd_S_Hz", icc_log]] }
+  }
+  merge(contrasts, icc, by = "variable", sort = FALSE)
 }

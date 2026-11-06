@@ -1,0 +1,9 @@
+# EXPERIMENTAL (round 2). PRCP: do smoothed regime probabilities (Kim) time the onsets better than the filtered ones? Hits within 30 s of the annotated onsets; all annotated changes (onsets and returns) too.
+source("analysis/00_setup.R"); source("experiments/regimes/v2/lib2.R"); ev_ann <- fread("data/prcp_events.csv"); d <- load_dataset("prcp", cfg)
+res <- list(); for (rid in names(d$rr)) { series <- prepare_series(d$rr[[rid]]); dy <- series$dy; tt <- cumsum(dy); off <- d$rec[[rid]]$time[1] - d$rec[[rid]]$rr[1]; base <- fit_ext(series); cp <- cp_search(series, base, min_gain = -Inf); if (is.null(cp)) next
+  h <- fit_regime(series, 2, cp, base, 7, 0.7, recip = 20); if (!isTRUE(h$ok)) next; r <- h$run(smooth = TRUE); Ws <- regime_smooth(r$W, r$A, h$p$Pi)
+  a1 <- ev_ann[as.character(ev_ann$id) == rid & is.finite(onset_s)]; an <- a1$onset_s - off; ret <- a1[is.finite(return_s), return_s] - off; every <- c(an, ret)
+  for (kind in c("filtered", "smoothed")) { W <- if (kind == "filtered") r$W else Ws; on <- regime_onsets2(W, tt); offs <- {p <- rowSums(W[, -1, drop = FALSE]) > 0.5; ch <- which(diff(p) == -1); tt[ch]}
+    near <- function(x, y, tol) if (!length(x)) 0L else sum(vapply(x, function(a) length(y) > 0 && min(abs(y - a)) <= tol, TRUE))
+    res[[length(res) + 1]] <- data.table(id = rid, kind = kind, annotated = length(an), hit30 = near(an, on, 30), hit60 = near(an, on, 60), returns = length(ret), ret_hit30 = near(ret, offs, 30), ret_hit60 = near(ret, offs, 60), detections = length(on), med_err = if (length(an) && length(on)) median(vapply(an, function(a) on[which.min(abs(on - a))] - a, 0)) else NA_real_) } }
+x <- rbindlist(res); print(x[, .(onsets = sum(annotated), hit30 = sum(hit30), hit60 = sum(hit60), returns = sum(returns), ret_hit30 = sum(ret_hit30), ret_hit60 = sum(ret_hit60), detections = sum(detections), median_abs_err = round(median(abs(med_err), na.rm = TRUE), 1)), by = kind])

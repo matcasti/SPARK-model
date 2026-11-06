@@ -64,7 +64,7 @@ The quantities of the augmented state-space model and their estimation status ar
 | :--- | :--- | :--- |
 | $x_p(t),\ x_s(t)$ | Latent vagal and sympathetic drives (Hz, deviations from baseline) | Reconstructed (filtered) |
 | $I_p(t),\ I_s(t)$ | Running time-integrals of the drives since the last beat | Reconstructed (filtered) |
-| $\nu_0$ | Intrinsic baseline pacing rate (Hz) | Profiled (GLS) |
+| $\nu_0$ | Baseline pacing rate (Hz): the mean rate at baseline | Profiled (GLS) |
 | $\sigma^2_{sys}$ | Global variance scale | Profiled (concentrated ML) |
 | $\kappa_p,\ \kappa_s$ ($\tau_p,\ \tau_s$) | Clearance rates (e-folding times) of the vagal and sympathetic drives | Estimated (MAP) |
 | $\lambda_P = V_p/V_s$ | Relative vagal-to-sympathetic stationary variance | Fixed from wavelet spectral partition |
@@ -573,6 +573,24 @@ if (!is.null(fantasia)) {
                           `$p$ (BH)` = fmt_p(ct$p_BH), check.names = FALSE), align = "llrrrrr")
 } else cat("[PENDING: results/fantasia.rds]")
 ```
+
+*Quantities that are comparable across people.* The tonic level of each drive is not identified from RR intervals ($\nu_0$, $\mu_p$ and $\mu_s$ enter the likelihood only through $\nu_0 - \mu_p + \mu_s$), so what can be compared is the variability of each drive in physical units, the time constants and the mean heart rate. The stationary SD of the vagal-like and sympathetic-like drives is $\sqrt{\lambda_P\sigma^2_{sys}}$ and $\sqrt{\sigma^2_{sys}}$ (Hz; multiplied by 60, a bpm equivalent); their ratio is the spectral anchor, so the split inherits its accuracy. @tbl-comparable lists them by group with the agreement between the two windows of the stability analysis.
+
+```{r}
+#| label: tbl-comparable
+#| tbl-colwidths: [34, 14, 14, 22, 16]
+#| tbl-cap: "Quantities comparable across people in the Fantasia database: medians by group, Cliff's delta (older versus young) with bootstrap 95% interval, and agreement between two windows of the same recording (ICC of the log values). Descriptive; no adjusted p-values."
+#| echo: false
+if (!is.null(fantasia) && !is.null(fantasia$comparable)) {
+  cm <- fantasia$comparable
+  lab <- c(mean_hr = "Mean heart rate (bpm)", Sd_P_bpm = "SD of the vagal-like drive (bpm equivalent)", Sd_S_bpm = "SD of the sympathetic-like drive (bpm equivalent)", Tau_P = "$\\tau_p$ (s)", Tau_S = "$\\tau_s$ (s)")
+  knitr::kable(data.frame(Quantity = unname(lab[cm$variable]), `Median (young)` = fmt_fixed(cm$median1), `Median (older)` = fmt_fixed(cm$median2),
+                          `Cliff's $\\delta$ [95% CI]` = minus(sprintf("%.2f [%.2f, %.2f]", cm$cliff_delta, cm$cliff_lo, cm$cliff_hi)), `ICC (log)` = ifelse(is.finite(cm$icc_log), sprintf("%.2f", cm$icc_log), "—"),
+                          check.names = FALSE), align = "lrrrr")
+} else cat("[PENDING: results/fantasia.rds]")
+```
+
+`r narrate_comparable(fantasia)`
 
 *Methods.* The leave-one-out $R^2$ with which the conventional HRV metrics predict each latent summary (low values indicate that the summary is not linearly recoverable from them) and the leave-one-out discrimination (AUC) of young versus older adults using HRV metrics, latent summaries or both were computed on the same recordings. For the subjects with a respiration signal, the dominant respiratory frequency (spectral peak between 0.10 and 0.50 Hz) was compared with the HF band (0.15–0.40 Hz), since the spectral anchor assumes that vagal modulation lies mainly in that band, and the respiratory coupling of each reconstructed state was quantified by the SD of the state within the respiratory band (respiratory frequency $\pm$ 0.04 Hz), its share of the total variance of the state in that band and the respiratory-power-weighted coherence with respiration; coherence is insensitive to amplitude, so the band SD and variance share are the primary measures, and the vagal-like and sympathetic-like states were compared within recordings (paired Wilcoxon test). For the subjects with blood pressure, mean systolic pressure, MAP and pulse pressure were summarized and baroreflex sensitivity was estimated by the alpha index in the LF and HF bands at frequencies where the squared coherence exceeds 0.5; these quantities were compared between groups with the same contrasts as in the main text and related to the latent summaries by Spearman correlations (pooled over groups, exploratory). Estimators are detailed in section ["Respiration, blood-pressure and lagged-correlation estimators"](#sec-covariate-methods). The stability of the representation was examined by refitting two non-overlapping windows of each recording (`r stability_window_text(config_used)`).
 
