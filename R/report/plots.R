@@ -94,10 +94,10 @@ perturbation_intervals <- function(series, kind) {
 }
 
 #' Stacked panels on a shared time axis: latent drives (with 95% bands), heart rate and, when present,
-#' MAP and tilt angle. The perturbation is shaded; tilts are numbered above the drives.
+#' ABP and tilt angle. The perturbation is shaded; tilts are numbered above the drives.
 #' @param kind "tilt" or "exercise"
 series_stack <- function(series, kind, cfg, title = NULL, subtitle = NULL) {
-  panel_names <- c("Drives (Hz)", "HR (bpm)", "MAP\n(mmHg)", "Tilt angle\n(\u00b0)")
+  panel_names <- c("Drives (Hz)", "HR (bpm)", "ABP\n(mmHg)", "Tilt angle\n(\u00b0)")
   band <- function(variance) if (is.null(variance)) 0 else 1.96 * sqrt(variance)
   states <- rbind(
     data.table(t = series$t, state = "x_p", v = series$x_p, lo = series$x_p - band(series$vp), hi = series$x_p + band(series$vp)),
@@ -137,7 +137,7 @@ series_stack <- function(series, kind, cfg, title = NULL, subtitle = NULL) {
 
 # ---- Event-locked averages ----------------------------------------------------------------------------------
 #' Recordings aligned on their events. For every event the variables are expressed relative to the event's
-#' own baseline: the states and (optionally) the CWT band powers in baseline SDs, heart rate and MAP as
+#' own baseline: the states and (optionally) the CWT band powers in baseline SDs, heart rate and ABP as
 #' changes. A recording's curve is the mean over its events; `locked` has one row per recording and time.
 #' @param series_list named list of series (analysis/datasets/05_prcp.R or 09_exercise.R)
 #' @param kind "tilt": aligned on each tilt onset, shown until the tilt returns;
@@ -186,7 +186,7 @@ event_locked <- function(series_list, kind = c("tilt", "exercise"), window_s = c
 }
 
 locked_labels <- function(reference = "baseline") tex_named(c(x_p = paste0("$x_p$\n(", reference, " SD)"), x_s = paste0("$x_s$\n(", reference, " SD)"), hr = "$\\Delta$HR\n(bpm)",
-                                         map = "$\\Delta$MAP\n(mmHg)", LF = "LF power\n(SD)", HF = "HF power\n(SD)"))
+                                         map = "$\\Delta$ABP\n(mmHg)", LF = "LF power\n(SD)", HF = "HF power\n(SD)"))
 
 #' Median and interquartile band over recordings of event-locked curves, individual recordings in grey.
 #' @param variables which variables to show, in order; @param alignment label of time zero

@@ -184,7 +184,7 @@ SYMBOL_TEX <- c(
   mean_hr = "Mean HR", SDNN = "SDNN", RMSSD = "RMSSD", LF_HF = "LF/HF", LF = "LF power", HF = "HF power",
   f_resp = "Respiratory frequency", resp_sd_x_p = "Respiratory-band SD of $x_p$", resp_sd_x_s = "Respiratory-band SD of $x_s$",
   resp_share_x_p = "Respiratory-band share of $x_p$", resp_share_x_s = "Respiratory-band share of $x_s$",
-  alpha_LF = "Baroreflex $\\alpha$ (LF)", alpha_HF = "Baroreflex $\\alpha$ (HF)", sbp = "Systolic pressure", map = "MAP",
+  alpha_LF = "Baroreflex $\\alpha$ (LF)", alpha_HF = "Baroreflex $\\alpha$ (HF)", sbp = "Systolic pressure", map = "ABP",
   pulse_pressure = "Pulse pressure", hr = "HR",
   # perturbation responses
   d_x_p = "$\\Delta x_p$", d_x_s = "$\\Delta x_s$", z_d_x_p = "$\\Delta x_p$ (baseline SD)", z_d_x_s = "$\\Delta x_s$ (baseline SD)",

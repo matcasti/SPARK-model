@@ -101,7 +101,7 @@ figure_fit_diagnostics <- function(results, cfg) {
   c <- ggplot(population, aes(crit, KS_Stat, colour = Dataset)) +
     geom_abline(slope = 1, linetype = 2, linewidth = 0.4, colour = "grey40") + geom_point(size = 1.8, alpha = 0.85) +
     scale_colour_manual(values = colours, guide = "none") +
-    labs(x = tex("Critical value $1.36/\\sqrt{N}$"), y = tex("KS distance $D$"), title = "Time-rescaling distance", subtitle = tex("below line: $D$ < critical value")) + theme_spark(cfg)
+    labs(x = tex("Critical value $1.36/\\sqrt{N}$"), y = tex("KS distance $D$"), title = "Innovation uniformity distance", subtitle = tex("below line: $D$ < critical value")) + theme_spark(cfg)
 
   taus <- melt(population[, .(Dataset, SubjectID, `x_p` = Tau_P, `x_s` = Tau_S)], id.vars = c("Dataset", "SubjectID"))
   prior_bands <- data.table(variable = factor(c("x_p", "x_s")), lo = c(priors$tau_p_bounds[1], priors$tau_s_bounds[1]),
@@ -225,13 +225,13 @@ prcp_amplitude_panel <- function(prcp, cfg) {
               subtitle = "large: recording median") + theme_spark(cfg)
 }
 
-#' Onset latency and step-response time constant of x_p, x_s and MAP across recordings (open: at a search bound).
+#' Onset latency and step-response time constant of x_p, x_s and ABP across recordings (open: at a search bound).
 prcp_timing_panels <- function(prcp, cfg) {
   states <- figure_palette(cfg, "states")
-  colour_of <- c(x_p = states[["x_p"]], x_s = states[["x_s"]], MAP = "#6B6B6B")
+  colour_of <- c(x_p = states[["x_p"]], x_s = states[["x_s"]], ABP = "#6B6B6B")
   response <- prcp$response
   gather <- function(p, s, m) rbind(data.table(v = "x_p", y = p), data.table(v = "x_s", y = s),
-                                    if (!is.null(m)) data.table(v = "MAP", y = m))[is.finite(y)]
+                                    if (!is.null(m)) data.table(v = "ABP", y = m))[is.finite(y)]
   latency <- gather(response$lat_p, response$lat_s, prcp$bp$lat_map)[, bound := abs(y) >= 39]
   tau <- gather(response$tau_p_resp, response$tau_s_resp, prcp$bp$tau_map)[, bound := y <= 2.01 | y >= 249]
   panel <- function(data, ylab, title, log = FALSE) {
@@ -239,7 +239,7 @@ prcp_timing_panels <- function(prcp, cfg) {
       geom_boxplot(outlier.shape = NA, linewidth = 0.35, fill = NA, width = 0.5) +
       geom_jitter(aes(shape = bound), width = 0.1, height = 0, size = 1.9, alpha = 0.9) +
       scale_colour_manual(values = colour_of, guide = "none") + scale_shape_manual(values = c(`FALSE` = 16, `TRUE` = 1), guide = "none") +
-      scale_x_discrete(labels = tex_named(c(x_p = "$x_p$", x_s = "$x_s$", MAP = "MAP"))) +
+      scale_x_discrete(labels = tex_named(c(x_p = "$x_p$", x_s = "$x_s$", ABP = "ABP"))) +
       labs(x = NULL, y = ylab, title = title, subtitle = tex("open: at a search bound\n")) + theme_spark(cfg)
     if (log) p + scale_y_log10(labels = log_labels) else p + geom_hline(yintercept = 0, linetype = 2, linewidth = 0.3)
   }
@@ -247,7 +247,7 @@ prcp_timing_panels <- function(prcp, cfg) {
        tau = panel(tau, "Time constant (s)", "Response time constant", log = TRUE))
 }
 
-#' Peak lagged correlation of each state with MAP (positive lag: MAP lags the state); open: surrogate p >= 0.05.
+#' Peak lagged correlation of each state with ABP (positive lag: ABP lags the state); open: surrogate p >= 0.05.
 prcp_lag_panel <- function(prcp, cfg) {
   states <- figure_palette(cfg, "states")
   lagged <- copy(prcp$xcorr)
@@ -257,11 +257,11 @@ prcp_lag_panel <- function(prcp, cfg) {
     geom_point(shape = 21, size = 2.4, stroke = 0.8) +
     scale_colour_manual(values = c(x_p = states[["x_p"]], x_s = states[["x_s"]]), guide = "none") +
     scale_fill_manual(values = c(x_p = states[["x_p"]], x_s = states[["x_s"]]), na.value = "white", guide = "none") +
-    labs(x = "Lag of MAP behind the state (s)", y = "Peak detrended correlation", title = "State-MAP coupling",
+    labs(x = "Lag of ABP behind the state (s)", y = "Peak detrended correlation", title = "State-ABP coupling",
          subtitle = tex("blue: $x_p$; red: $x_s$")) + theme_spark(cfg)
 }
 
-#' Mean state, HR and MAP by tilt-angle plateau, standardized (recordings with several levels).
+#' Mean state, HR and ABP by tilt-angle plateau, standardized (recordings with several levels).
 prcp_dose_panel <- function(prcp, cfg) {
   states <- figure_palette(cfg, "states")
   dose <- melt(prcp$dose_levels, id.vars = "level")

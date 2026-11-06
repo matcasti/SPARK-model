@@ -93,7 +93,7 @@ VARIABLE_LABELS <- c(
   sd_ratio = "the SD ratio $x_p/x_s$", log_kappa_ratio = "$\\ln(\\kappa_p/\\kappa_s)$", share_p = "the share of $x_p$ variance",
   mean_hr = "mean heart rate", SDNN = "SDNN", RMSSD = "RMSSD", LF_HF = "LF/HF", f_resp = "the respiratory frequency",
   resp_sd_x_p = "the respiratory-band SD of $x_p$", alpha_LF = "the baroreflex alpha index (LF)", sbp = "systolic pressure",
-  map = "MAP", pulse_pressure = "pulse pressure"
+  map = "ABP", pulse_pressure = "pulse pressure"
 )
 label_of <- function(v) ifelse(v %in% names(VARIABLE_LABELS), VARIABLE_LABELS[v], v)
 
@@ -270,8 +270,8 @@ narrate_prcp <- function(prcp, part = c("main", "supplement")) guarded("results/
   if (s$n_bp > 0) {
     xs <- s$xcorr[s$xcorr$state == "X_s", ]
     xp <- s$xcorr[s$xcorr$state == "X_p", ]
-    text <- paste0(text, " In the ", s$n_bp, " recordings with arterial pressure, MAP changed by a median of ", num(s$d_map["med"], 1), " mmHg (pulse pressure ", num(s$d_pp["med"], 1),
-                   " mmHg) with an onset ", num(s$lat_map["med"], 1), " s after the tilt onset; after removing slow trends, the peak lagged correlation of MAP with the states was ",
+    text <- paste0(text, " In the ", s$n_bp, " recordings with arterial pressure, ABP changed by a median of ", num(s$d_map["med"], 1), " mmHg (pulse pressure ", num(s$d_pp["med"], 1),
+                   " mmHg) with an onset ", num(s$lat_map["med"], 1), " s after the tilt onset; after removing slow trends, the peak lagged correlation of ABP with the states was ",
                    if (nrow(xp)) paste0(num(xp$peak_r, 2), " for $x_p$ (lag ", num(xp$lag_s, 0), " s; surrogate $p < 0.05$ in ", pct(xp$frac_p05), " of recordings)") else "not computed for $x_p$",
                    " and ", if (nrow(xs)) paste0(num(xs$peak_r, 2), " for $x_s$ (lag ", num(xs$lag_s, 0), " s; ", pct(xs$frac_p05), ")") else "not computed for $x_s$", ".",
                    if (all(abs(c(xp$peak_r, xs$peak_r)) < 0.3, na.rm = TRUE) && (nrow(xp) + nrow(xs)) > 0) " These correlations are weak in magnitude." else "",
@@ -497,7 +497,7 @@ abstract_identifiability <- function(ident) guarded("results/identifiability.rds
   m <- as.data.frame(ident$metrics)
   a <- spec_median(m, "M0", "n_solutions"); b <- spec_median(m, "M3", "n_solutions")
   c0 <- mean(m$collapse_frac[m$spec == "M0"], na.rm = TRUE); c3 <- mean(m$collapse_frac[m$spec == "M3"], na.rm = TRUE)
-  sprintf("multi-start fits reached a median of %s distinct solutions per recording without physiological information versus %s with it, and one process absorbed essentially all variability in %s versus %s of the fits",
+  sprintf("fitting each recording from many different starting points gave a median of %s distinct solutions without physiological information versus %s with it, and one process absorbed essentially all the variability in %s versus %s of the fits",
           num(a, 1), num(b, 1), pct(c0), pct(c3))
 })
 
@@ -625,7 +625,7 @@ conclusion_identifiability <- function(ident) guarded("results/identifiability.r
   reduced <- spec_median(m, "M0", "n_solutions") > spec_median(m, "M3", "n_solutions") * (1 + NARRATIVE$similar_rel) ||
     mean(m$collapse_frac[m$spec == "M0"], na.rm = TRUE) > mean(m$collapse_frac[m$spec == "M3"], na.rm = TRUE) + NARRATIVE$similar_rel ||
     spec_median(m, "M0", "sd_ln_tau_s_equiv") > spec_median(m, "M3", "sd_ln_tau_s_equiv") * (1 + NARRATIVE$similar_rel)
-  if (reduced) "In the recordings analyzed, adding the physiological information reduced the number of distinct latent solutions and the occurrence of one-process solutions relative to RR alone, at a cost in RR error."
+  if (reduced) "In the recordings analyzed, adding the physiological information reduced the number of distinct latent solutions and the occurrence of one-process solutions relative to RR alone at a cost in RR error."
   else "In the recordings analyzed, adding the physiological information did not materially change the ambiguity of the latent solutions relative to RR alone, which limits the claim that it is required."
 })
 
