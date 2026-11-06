@@ -18,7 +18,7 @@ A comparison is only as good as the quantity it uses, so choose the quantity fir
 
 Reliability = test–retest ICC of the log values between two non-overlapping 10-minute windows of the same resting recording (Fantasia, 20 young + 20 older
 adults, same session; the pooled sample is heterogeneous, which raises ICC). "Window-to-window change" is the median relative change between those windows:
-a within-person difference smaller than this is not interpretable.
+a within-person difference smaller than this is not interpretable. How to word each quantity physiologically is in section 6.
 
 | Quantity (app label) | Reliability (ICC) | Window-to-window change | How it is determined | Use |
 |---|---|---|---|---|
@@ -70,9 +70,66 @@ a within-person difference smaller than this is not interpretable.
 - For designs B and C: the baseline window used and the within-person variability.
 - Fit quality: gated beats and the diagnostic chips.
 - The sensitivity check, if the conclusion involves the split between the drives.
-- The wording "vagal-like / sympathetic-like reconstructed states", not "vagal / sympathetic activity".
+- The wording "vagal-like / sympathetic-like reconstructed states", not "vagal / sympathetic activity" (section 6 gives the wording quantity by quantity).
 
-## 6. Things SPARK does not give you
+## 6. How to word each quantity physiologically
+
+Section 2 says *which* quantities to compare; this section says *what each one means* and *how to write it up*, so that a number is not given a physiological meaning that the model cannot support. The rule behind every row:
+
+> Describe the **reconstructed state or the fitted parameter**, never the **nerve or the branch**. Words such as *tone*, *activity*, *outflow*, *reactivity* and *balance* belong to measured physiology. SPARK returns model-conditional reconstructions from RR intervals alone, with no validation against nerve activity or pharmacological blockade.
+
+### 6.1 Quantity by quantity
+
+| Quantity | What it means physiologically (in the model) | Do report as | Do not report as |
+|---|---|---|---|
+| Baseline rate ν₀ (× 60 = bpm equivalent) | The pacing rate the model assigns to the sinoatrial node when both drives sit at their baseline: the overall rate level of the recording, net of both branches. It is not the observed mean heart rate. | "Baseline pacing rate (model estimate) of [value] bpm-equivalent", next to the observed mean heart rate | "Intrinsic heart rate"; "resting heart rate" if the person was not at rest; "vagal tone" or "sympathetic tone"; "equal to the mean heart rate" |
+| Mean heart rate (60 / mean RR) | The observed average rate in the window, the result of both branches, the intrinsic rate and the condition. | "Mean heart rate" | A measure of either branch |
+| SD_P and SD_S (Hz; × 60 = bpm equivalent), SD of x_p and of x_s | How large the fluctuations of each reconstructed drive are around its own baseline: how much heart-rate modulation the model attributes to the fast (vagal-like) and to the slow (sympathetic-like) component. | "Variability amplitude of the vagal-like (fast) drive, SD_P = [value] Hz ([value] bpm equivalent)"; "lower in group A than in group B (exploratory; Cliff's δ [value], 95% CI [..])" | "Vagal tone" or "vagal activity"; "sympathetic outflow"; "[value] bpm of vagal tone"; reading SD_P as a nerve firing rate or as a level |
+| Overall amplitude σ²_sys | The overall variability of RR that the model has to explain (global scale of both drives). Carries the same information as SDNN and RMSSD. | "Overall modelled variability (σ²_sys), in line with SDNN and RMSSD" | "Total autonomic activity", "autonomic function" or "autonomic reserve" |
+| V_P / V_S (λ_P) | How the model splits the variability between the fast and the slow component. It is **set by the recording's wavelet spectrum** (the spectral anchor), not estimated independently. | "Spectral partition ratio (fast-to-slow variance), derived from the wavelet spectrum of the recording" | "Sympathovagal balance", "autonomic balance", "an LF/HF-type marker of sympathetic dominance", an independent finding about the person |
+| τ Parasympathetic (τ_p) | The time scale of the fast drive: how quickly it relaxes back to baseline. Partly prior-informed (81% of estimates fall outside the prior interval) and able to absorb baroreflex-range oscillations. | "Fast time constant (τ_p), read against its prior"; "higher in group A (δ [value]); [x]% of estimates outside the prior interval" | "Vagal time constant", "parasympathetic reactivation speed", "vagal recovery rate" |
+| τ Sympathetic (τ_S) | The time scale of the slow drive. 97% of estimates fall inside the prior interval, so it mostly returns the prior. | "Not interpreted; prior-dominated (reported for completeness)" | Any between-person or between-group comparison; "sympathetic time constant" or "sympathetic recovery time" |
+| Split between drives (share of x_p variance, SD ratio, κ_P/κ_S, σ_P/σ_S) | How variability is allocated between the fast and the slow component. Depends on the spectral anchor and the priors, and κ_P > κ_S is enforced. | "Allocation of variability between the fast and the slow component, conditional on the spectral anchor ([sensitivity check result])", within one design | "Vagal dominance" or "sympathetic dominance"; "autonomic balance"; "the vagal share of autonomic activity" |
+| Net tone (needs age) | The mean heart rate minus the intrinsic rate of a population formula for that age (118.1 − 0.57 × age; individual error about ±8 bpm). | "Heart rate relative to the age-predicted intrinsic rate (population formula, an assumption)", only in age-conditional designs | "Net sympathetic tone"; "sympathovagal balance"; "this person's measured intrinsic rate"; any individual-level reading |
+| Standardized change of a state in a perturbation (design C) | Direction and relative size of the change of a reconstructed state from its own baseline, in SDs of that baseline. | "The vagal-like state decreased and the sympathetic-like state increased (standardized change against the own baseline), the expected pattern for vagal withdrawal with sympathetic engagement" | "Vagal withdrawal of [x]%" or "sympathetic activation of [y]%"; comparing the size of the two states (x_s can change by tens of baseline SDs because its baseline SD is small); "proves sympathetic activation" |
+| Order and delay of responses (onset latency, relative onset lag, step-response constant) | Relative timing of the fast and slow reconstructed components around an event. Approximate: many step-response fits reach a search bound, and events detected from the same RR series are not independent evidence. | "The sympathetic-like response began [value] s after the vagal-like response (median; [x]% of fits at a search bound)" | "Neural latency" or "conduction delay"; "sympathetic latency of [value] s" as a reaction time; absolute latencies when the event was detected from the RR series itself |
+| Recovery time (90% of the excursion; Kaplan–Meier median) | How long the fitted state takes to return to 90% of its excursion. About 2.3 × τ, so it reflects the fitted kinetics (shaped by the priors); censored if not reached in the window. | "Model-based recovery time of the vagal-like / sympathetic-like state (Kaplan–Meier median; [n] censored)" | "Vagal reactivation time", "autonomic recovery time", "parasympathetic recovery"; equivalence to heart-rate-recovery indices; ignoring censoring |
+| Path geometry in the (x_p, x_s) plane (length, enclosed area, maximum quadratic energy E) | A descriptive shape of the response in rest-SD units. | "Descriptive geometry of the response (path length, enclosed area, maximum distance from rest)" | "Energy expenditure"; "dissipation"; "entropy production"; "allostatic load"; "adaptive capacity" |
+| Areal velocity, mean excursion index, balance σ, total drive, log balance index (app displays) | Descriptive displays with no validated physiological meaning. | Not reported | Any physiological quantity |
+| 95% bands of the states | Uncertainty of the filtered state given the fitted parameters; it leaves out the uncertainty of the parameters themselves. | "Filtered states with 95% intervals, conditional on the maximum a posteriori parameters" | "Confidence interval of the person's autonomic activity" |
+| Fit RMSE, gated beats, KS and PACF diagnostics, log-likelihood | Quality of the in-sample fit and of the noise assumptions. | "In-sample filtered fit (RMSE [value] ms); gated beats [x]%; residual diagnostics [result]" | "Prediction accuracy"; "validation of the states"; "the model is right because the fit is good"; a reason to exclude a recording |
+
+### 6.2 Vocabulary
+
+| Say | Instead of |
+|---|---|
+| vagal-like / sympathetic-like state, drive or component | vagal / sympathetic activity, tone, outflow |
+| reconstructed, model-based, model-conditional | measured, observed, recorded |
+| consistent with the expected pattern | demonstrates, confirms, proves |
+| conditional on the spectral anchor and the priors | independent of the settings |
+| lower / higher in group A (exploratory, effect size with interval) | impaired, preserved or healthy autonomic function |
+| baseline pacing rate | intrinsic heart rate (unless the age formula is stated as an assumption) |
+| fast and slow time constant | vagal and sympathetic time constant |
+
+### 6.3 Example sentences to adapt
+
+Replace the bracketed values with your own results and delete any clause you cannot support.
+
+- **Methods.** "Latent autonomic states were reconstructed from RR intervals with SPARK ([version], default settings: spectral crossover 0.10 Hz, vagal floor 0.25; cleaning [on/off]). The two states are vagal-like and sympathetic-like reconstructions, defined by their kinetics and spectral allocation; they are not measurements of neural activity. Gated beats were [x]% of the recording."
+- **Different groups (design A).** "Compared with [group B], [group A] had a lower variability amplitude of the vagal-like drive (SD_P, median [value] versus [value] Hz; Cliff's δ = [value], 95% CI [..]; exploratory, n = [..] per group), with a similar baseline pacing rate. SDNN and RMSSD showed the same direction."
+- **Same person over time (design B).** "After [intervention], the fast time constant changed by [x]%, against a window-to-window change of [y]% between two baseline windows of the same person; the change [exceeds / does not exceed] this within-person variability."
+- **Perturbation (design C).** "During [tilt], the vagal-like state decreased ([value] baseline SD) and the sympathetic-like state increased ([value] baseline SD) in [n] of [N] recordings, the expected pattern of vagal withdrawal with sympathetic engagement; the same contrast between two halves of the baseline gave it in [x]%. The sympathetic-like response began [value] s after the vagal-like response ([x]% of fits at a search bound). How the change is split between the two drives is conditional on the spectral anchor ([sensitivity result])."
+- **Limitation.** "The states are model-based reconstructions conditional on the stated assumptions. They have not been validated against microneurography or pharmacological blockade, and RR intervals alone do not identify the tonic level of either branch."
+
+### 6.4 Check your text before submitting
+
+1. Does any sentence say *tone*, *activity*, *outflow* or *balance* of a branch for a SPARK quantity? Rewrite it as a reconstructed state or a parameter.
+2. Does any comparison use τ_S, or the split between drives without the sensitivity check? Remove it or mark it as conditional.
+3. Does any sentence give the size of a change to one branch, or compare the sizes of the two states? Report the direction and the timing instead.
+4. Is every time constant read against its prior, and is every recovery time reported with its censoring?
+5. Is the heart rate (or SDNN and RMSSD) reported next to any SPARK quantity that it largely reproduces?
+
+## 7. Things SPARK does not give you
 
 - Reference values or thresholds; a clinical diagnosis; validation against nerve activity or pharmacological blockade.
 - Independent estimates of the slow (sympathetic) time constant.
@@ -80,8 +137,8 @@ a within-person difference smaller than this is not interpretable.
 - Smoothed estimates: the states are filtered, not smoothed (the parameters and the spectral anchor use the whole recording, so the procedure is retrospective rather than strictly causal), and they lag sudden changes. In the Live section, states are provisional until about 5 minutes of recording.
 - Results from populations with overt cardiac autonomic disease (not tested).
 
-## 7. Where to find the details
+## 8. Where to find the details
 
-- Manuscript: *Identification structure* (what is fixed by assumption), *Identifiability* results (what RR alone cannot determine), *Limitations*.
+- Manuscript: *Model assumptions and identification structure* (what is fixed by assumption), *Identifiability* results (what RR alone cannot determine), *Limitations*.
 - Supplement: *Spectral anchoring*, *Identifiability and sensitivity analyses: details*, *Additional analyses of the Fantasia recordings* (stability).
 - Reproducing a fit: `README.md` of this repository, and the exported R script of the app.
