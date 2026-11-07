@@ -38,3 +38,4 @@ data-raw/prcp/*
 
 # Experimental outputs (not part of the pipeline)
 experiments/*/_out/
+spark-results-*.zip

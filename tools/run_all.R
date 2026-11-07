@@ -108,10 +108,10 @@ previous <- previous[!previous$step %in% selected, , drop = FALSE]
 run_log <- rbind(previous, do.call(rbind, lapply(log_rows, function(r) { r$seconds <- as.character(r$seconds); r })))
 write.csv(run_log[order(run_log$step), ], log_file, row.names = FALSE)
 
+writeLines(capture.output(sessionInfo()), file.path(cfg$paths$results, "sessionInfo.txt"))   # before the manifest, which lists it
 result_files <- sort(list.files(c(cfg$paths$results, cfg$paths$figures), recursive = TRUE, full.names = TRUE))
 result_files <- result_files[!basename(result_files) %in% c("MANIFEST.csv", ".DS_Store")]
 write.csv(data.frame(file = result_files, bytes = file.size(result_files), md5 = md5(result_files)), file.path(cfg$paths$results, "MANIFEST.csv"), row.names = FALSE)
-writeLines(capture.output(sessionInfo()), file.path(cfg$paths$results, "sessionInfo.txt"))
 
 cat(sprintf("\nSteps run: %s | %.1f min | provenance, run_log and MANIFEST written to %s/\n", paste(selected, collapse = " "), sum(as.numeric(run_log$seconds[run_log$step %in% selected])) / 60, cfg$paths$results))
 cat("All steps completed.\n")
