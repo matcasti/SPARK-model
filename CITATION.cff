@@ -1,6 +1,8 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it using the metadata below (and the article, once published)."
 type: software
+version: "1.0.0"
+date-released: "2026-11-06"
 title: "SPARK: Physiology-informed inference of latent cardiac autonomic dynamics from RR intervals"
 abstract: >-
   R implementation of SPARK (Stochastic Phase-domain Autonomic Reconstruction Kinetics), a physiology-informed

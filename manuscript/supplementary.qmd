@@ -441,11 +441,11 @@ if (!is.null(sensitivity)) {
 #| tbl-cap: "Benchmark of recovery-time definitions on simulated recordings (mean over the two states)."
 #| echo: false
 if (!is.null(recovery_benchmark)) { a <- recovery_benchmark$choice$aggregate
-  knitr::kable(data.frame(Definition = a$definition, `Defined estimate` = sprintf("%.0f%%", 100 * a$success), `Rank correlation with truth` = round(a$rho_truth, 2),
+  knitr::kable(data.frame(Definition = words_for(as.character(a$definition), RECOVERY_DEFINITION_TEXT), `Defined estimate` = sprintf("%.0f%%", 100 * a$success), `Rank correlation with truth` = round(a$rho_truth, 2),
                           `Test-retest rank correlation` = round(a$rho_retest, 2), Score = round(a$score, 2), check.names = FALSE)) } else cat("[PENDING: results/recovery_choice.rds]")
 ```
 
-The definition with the highest score was `r txt(if (!is.null(recovery_benchmark)) recovery_benchmark$choice$definition)`, and the end-of-exercise rule with the smallest median absolute error was `r txt(if (!is.null(recovery_benchmark)) recovery_benchmark$choice$end_method)` (`r txt(if (!is.null(recovery_benchmark)) recovery_benchmark$choice$n_profiles)` simulated profiles; supplementary figure S3). The ranking depends on the simulated profiles, on the 10-s smoothing and on the tolerance of 1 rest SD, and should be revisited if the real recovery curves differ qualitatively (for example, non-monotonic recovery).
+The definition with the highest score was `r txt(if (!is.null(recovery_benchmark)) words_for(as.character(recovery_benchmark$choice$definition), RECOVERY_DEFINITION_TEXT))`, and the end-of-exercise rule with the smallest median absolute error was `r txt(if (!is.null(recovery_benchmark)) words_for(as.character(recovery_benchmark$choice$end_method), END_RULE_TEXT))` (`r txt(if (!is.null(recovery_benchmark)) recovery_benchmark$choice$n_profiles)` simulated profiles; supplementary figure S3). The ranking depends on the simulated profiles, on the 10-s smoothing and on the tolerance of 1 rest SD, and should be revisited if the real recovery curves differ qualitatively (for example, non-monotonic recovery).
 
 ![Benchmark of recovery-time definitions: proportion of defined estimates, rank correlation with the true constant, and test-retest rank correlation, for each state.](figures/figS3_recovery_benchmark.png){#fig-supp-recovery width=100% fig-alt="Three panels of bars comparing four recovery-time definitions for the vagal-like and sympathetic-like states: share of defined estimates, rank correlation with the true constant and test-retest rank correlation."}
 

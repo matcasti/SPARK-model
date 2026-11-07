@@ -650,6 +650,15 @@ example_caption <- function(figure_info, figure = "fig7_prcp") {
   paste0("recording ", id, ", ", rule)
 }
 
+#' Sentence for the caption of the identifiability figure (panel B): starts of the plotted recording that stopped at a worse
+#' local optimum under M3. Empty when there are none or the information is missing.
+identifiability_start_note <- function(figure_info) {
+  info <- figure_info[["fig5_identifiability"]]$identifiability
+  if (is.null(info) || !is.finite(info$n_worse) || info$n_worse == 0) return("")
+  sprintf(" Under $M_3$, %d of the %d starts of this recording stopped at a local optimum %.0f log-likelihood units below the best fit (outside the contours); the others reached the same optimum.",
+          info$n_worse, info$n_starts, info$dLL_worse)
+}
+
 #' "600-1200 s and 1200-1800 s": the two windows of the stability analysis.
 stability_window_text <- function(config_used) guarded("results/config_used.rds", {
   w <- config_used$windows$fantasia

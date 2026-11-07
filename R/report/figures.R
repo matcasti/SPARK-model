@@ -161,7 +161,7 @@ figure_identifiability <- function(results, cfg) {
       labs(x = tex(xlab), y = "Recordings", title = title, subtitle = tex(subtitle)) + theme_spark(cfg)
   }
   a1 <- histogram("best", "Share of $x_p$ variance at the best fit (0: all in $x_s$; 1: all in $x_p$)", "Variance split at the best fit",
-                  sprintf("one process takes all (< %s or > %s):\n$M_0$ %s of recordings, $M_3$ %s", collapse_share[1], collapse_share[2], percent_of("M0", quote(collapsed)), percent_of("M3", quote(collapsed))))
+                  sprintf("best fit, one process takes all (< %s or > %s):\n$M_0$ %s of recordings, $M_3$ %s", collapse_share[1], collapse_share[2], percent_of("M0", quote(collapsed)), percent_of("M3", quote(collapsed))))
 
   # ---- B: profile of the objective with the end points of the starts (one recording) -------------------------------------------
   surface <- ident$surfaces[spec %in% c("M0", "M3")]
@@ -203,7 +203,17 @@ figure_identifiability <- function(results, cfg) {
   }
   upper <- if (!is.null(b)) (tag_panel(a1, "A") | tag_panel(b, "B")) + plot_layout(widths = c(1, 1.1)) else tag_panel(a1, "A")
   plot <- if (is.null(c)) upper else (upper / tag_panel(c, "C")) + plot_layout(heights = c(1.15, 0.8))
-  list(plot = plot, width = 9, height = 8, info = list())
+  # Starts of the plotted recording under M3 that stopped at a worse local optimum (not near-equivalent): the caption says so
+  info <- list()
+  if (!is.null(b)) {
+    m3 <- ident$starts[ok == TRUE & SubjectID == sid & spec == "M3" & is.finite(LL_star)]
+    if (nrow(m3)) {
+      m3[, dLL := max(LL_star) - LL_star]
+      info <- list(identifiability = list(recording = sid, n_starts = nrow(m3), n_worse = sum(m3$dLL > tolerance),
+                                          dLL_worse = if (any(m3$dLL > tolerance)) median(m3$dLL[m3$dLL > tolerance]) else NA_real_))
+    }
+  }
+  list(plot = plot, width = 9, height = 8, info = info)
 }
 
 # ---- Figure 7: orthostatic perturbation --------------------------------------------------------------------------------------
@@ -218,7 +228,7 @@ prcp_amplitude_panel <- function(prcp, cfg) {
     geom_point(data = per_recording, aes(z_d_x_p, z_d_x_s), size = 2.7, colour = colour)
   if (nrow(per_recording) <= 12) {
     plot <- plot + if (requireNamespace("ggrepel", quietly = TRUE))   # labels pushed apart; without ggrepel, overlapping labels are dropped
-      ggrepel::geom_text_repel(data = per_recording, aes(z_d_x_p, z_d_x_s, label = SubjectID), size = 2.7, colour = "grey30", segment.size = 0.2, min.segment.length = 0.2, max.overlaps = Inf, seed = 1)
+      ggrepel::geom_text_repel(data = per_recording, aes(z_d_x_p, z_d_x_s, label = SubjectID), size = 2.7, colour = "grey30", segment.size = 0.2, min.segment.length = 0.2, max.overlaps = Inf, seed = 1, box.padding = 0.45, point.padding = 0.35, force = 3, force_pull = 0.5)
     else geom_text(data = per_recording, aes(z_d_x_p, z_d_x_s, label = SubjectID), size = 2.7, hjust = -0.25, colour = "grey30", check_overlap = TRUE)
   }
   plot + labs(x = tex("$\\Delta x_p$ (baseline SD)"), y = tex("$\\Delta x_s$ (baseline SD)"), title = "Response amplitude",
