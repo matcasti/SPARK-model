@@ -1,0 +1,43 @@
+# Publishes the rendered manuscript and supplement (HTML + PDF) with GitHub Pages.
+#
+# The site is NOT rendered here: the figures and numbers come from results/ (about 50 minutes of analysis, not stored in git).
+# `make publish` renders it on your machine and force-pushes the built files to the `site` branch (one commit, no history growth);
+# this workflow only deploys that branch.
+#   automatic   a push to the `site` branch (`make publish`)
+#   manual      Actions tab > "Publish manuscript" > Run workflow (redeploys the current `site` branch)
+#
+# One-time setup in the repository settings:
+#   Settings > Pages > Build and deployment > Source: GitHub Actions
+#   Settings > Environments > github-pages > Deployment branches: add `site` (needed for the automatic trigger)
+name: Publish manuscript
+
+on:
+  push:
+    branches: [site]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: site
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+      - id: deployment
+        uses: actions/deploy-pages@v4
