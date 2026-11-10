@@ -102,3 +102,41 @@ Medians over 7 (paced) and 6 (spontaneous) subjects; the between-subject range i
 2. Adding a respiratory oscillator to M3 is supported by the blockade spectra (tau_p 3-4 s with it, 1.7 s without it, 14 s in the production fits).
 3. The label "sympathetic-like" for the slow drive is conditional on rest: what the blockade removes at slow frequencies is vagal. Not a change for the submitted manuscript (it states that the latent states are model-conditional reconstructions), but a point to keep in mind for the discussion.
 4. A default from these data needs more subjects (HMS-MIT-FFMS and the other sets by request) and records long enough to see the 100-300 s scale.
+
+---
+
+# Step 3: validation of the SPARK states against blockade and against the nerve signal (`validation/`)
+
+Same data, same prepared segments (`_out/protocol.csv`, `_out/rpeaks/`); the nerve signal (integrated MSNA) is read from the zip by `prep/msna_extract.py` (1 s means) and the maneuver times from the logs by `prep/maneuvers.py` (`_out/maneuvers.csv`). Nothing here changes the pipeline, the manuscript or the app. Ready-to-add text: `docs/REVIEWER_FAQ.md`, K1 and K2.
+
+## A. Does the M3 decomposition respond to the drugs? (`validation/m3_blockade.R`)
+
+Production M3 (own spectral anchor, production priors) fitted to every 5-min segment; SD_p = sqrt(lambda_P sigma^2) and SD_s = sqrt(sigma^2) in Hz; ratios to saline of the same day (day 1 for atropine and double blockade, day 2 for propranolol alone), geometric mean over subjects [95% bootstrap CI]. Predictions fixed before the run (in the script header).
+
+| Condition (spontaneous breathing) | n | SD_p / saline | SD_s / saline | heart rate |
+|---|---|---|---|---|
+| atropine, low dose | 5 | 0.82 [0.51, 1.33] | 0.88 [0.62, 1.26] | -4 bpm |
+| **atropine, high dose** | 6 | **0.16 [0.11, 0.20]** | 0.26 [0.16, 0.40] | +47 bpm |
+| double blockade | 6 | 0.10 [0.07, 0.16] | 0.13 [0.08, 0.23] | +31 bpm |
+| propranolol alone | 7 | 1.42 [0.95, 2.06] | 1.52 [0.94, 2.46] | -2 bpm |
+
+Paced breathing (0.25 Hz, 7 subjects): atropine 0.18 [0.13, 0.23] / 0.36 [0.29, 0.45]; double 0.14 [0.10, 0.21] / 0.18 [0.12, 0.26]; propranolol 0.51 [0.12, 1.14] / 0.51 [0.11, 1.33].
+
+- **P1 (confirmed):** high-dose atropine lowers SD_p below 0.3 of saline in 6 of 6 subjects. **P3 (confirmed):** propranolol alone does not lower SD_p (ratio >= 0.8 in 6 of 7). **P4 (confirmed):** double blockade leaves both SDs below 0.5 in 6 of 6.
+- **P2 (not confirmed):** SD_s was not preserved under atropine: it fell to 0.11-0.57 of saline, by more than 3 times in 3 of 6 subjects. M3's SD_s is the global scale divided between the drives by the anchor, and the anchor re-estimates the split from the spectrum that remains (lambda_P from 4.2 to 1.0, median): the sympathetic-like amplitude is not independent of the vagal one. In physical terms it should have stayed about constant in ln RR while the heart rate rose.
+- M3 parameters, saline -> high-dose atropine (median): tau_p 2.6 -> 6.5 s, tau_s 169 -> 147 s.
+- Low-dose atropine is not a weak version of the high dose (subject 1: heart rate falls and power at 0.11-0.14 Hz rises 24-30 times); not interpreted.
+
+## B. Do the states follow the nerve signal and the maneuvers? (`validation/maneuvers.R`)
+
+14 sessions (7 men x 2 days), saline period; M3 fitted to the RR of the whole period (baseline, paced breathing, hyperventilation, breath-hold); filtered x_p and x_s against 10-s means of MSNA, all as z-scores against the spontaneous baseline of the session. Expectations fixed before the run.
+
+| Change from baseline (median [min, max], z) | MSNA | x_s | x_p | heart rate |
+|---|---|---|---|---|
+| breath-hold, second half | 2.35 [-10.7, 23.9], up in **11/14** | -1.33 [-15.7, 1.4], up in **3/14** | 0.08, up in 9/14 | -0.17, up in 6/14 |
+| hyperventilation | 3.97, up in 9/14 | 10.35, up in **14/14** | -3.21, up in 1/14 | 5.14, up in 14/14 |
+
+- **H1 (confirmed):** MSNA rises in the second half of the breath-hold in 11 of 14 sessions. **H2 (not confirmed):** x_s rises in only 3 of 14. **H3 (not confirmed):** across sessions the change of MSNA correlates with that of x_s at Spearman -0.17 (x_p -0.13, heart rate 0.01). Lagged correlation over the whole period (+-40 s): x_s 0.05, x_p -0.07, heart rate 0.10.
+- During hyperventilation x_s rises in every session together with the heart rate and x_p falls: the slow drive behaves as an acceleratory component of the rate. It does not follow the sympathetic nerve signal in these data (the breath-hold slows the heart while MSNA rises).
+
+Caveats: 7 volunteers, 14 sessions, 1-s means of an integrated neurogram of unknown quality (subject 4, day 1 has a very low signal), muscle sympathetic activity is not cardiac sympathetic activity, long breath-holds (110-380 s) after hyperventilation are strong, non-physiological perturbations; breath-hold and hyperventilation times from free-text logs (reviewed by hand; one breath-hold end corrected).

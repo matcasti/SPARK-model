@@ -3,7 +3,7 @@
 #   Rscript experiments/ou_logrr/compare/verdict.R      (the real-data part runs for the datasets already computed)
 # S3 was amended after seeing that M3 itself misses the 0.67-1.5 band in the tilt scenario: "within the band, or not farther from 1 (in ln) than M3 by more than 0.1".
 # ==============================================================================
-options(width = 220, datatable.print.nrows = 200); suppressMessages(library(data.table)); out <- "experiments/ou_logrr/_out"; V <- c("F1", "F2", "F3", "F4", "F5")
+options(width = 220, datatable.print.nrows = 200); suppressMessages(library(data.table)); out <- "experiments/ou_logrr/_out"; V <- c("F1", "F2", "F3", "F4", "F5", "F6")
 yn <- function(x) ifelse(is.na(x), "NA", ifelse(x, "pass", "FAIL"))
 
 # ---- Simulation ---------------------------------------------------------------------------------------------------
@@ -12,7 +12,7 @@ f <- sim[smooth == FALSE]
 agg <- f[, .(rmse_p = mean(rmse_p), rmse_s = mean(rmse_s), cor_p = mean(cor_p), cor_s = mean(cor_s), cov_p = mean(cover_p), cov_s = mean(cover_s), ln_tp = median(abs(ln_tau_p)), ln_ts = median(abs(ln_tau_s)),
          chg_p = median(chg_p, na.rm = TRUE), chg_s = median(chg_s, na.rm = TRUE), vf = mean(t50_p < t50_s, na.rm = TRUE), vf_true = mean(t50_p_true < t50_s_true, na.rm = TRUE)), by = .(grp, model)]
 rows <- list()
-for (g in unique(agg$grp)) { m3 <- agg[grp == g & model == "M3"]
+for (g in unique(agg$grp)) { m3 <- agg[grp == g & model == "M3"]; if (!nrow(m3)) next
   for (v in V) { x <- agg[grp == g & model == v]
     s1 <- x$rmse_p <= 1.10 * m3$rmse_p && x$rmse_s <= 1.10 * m3$rmse_s && x$cor_p >= m3$cor_p - 0.03 && x$cor_s >= m3$cor_s - 0.03
     ok_cov <- function(c, c3) (c >= 0.90 && c <= 0.98) || c >= c3 - 0.03; s2 <- ok_cov(x$cov_p, m3$cov_p) && ok_cov(x$cov_s, m3$cov_s)
@@ -25,7 +25,10 @@ cat("\n== Simulation: variants passing every criterion in every scenario group\n
 print(simv[, .(all_pass = all(c(S1_accuracy, S2_calibration, S4_time_constants) == "pass") && all(S3_exercise_tilt[S3_exercise_tilt != "NA"] == "pass"), n_fail = sum(unlist(.SD) == "FAIL")), by = variant, .SDcols = 3:6], row.names = FALSE)
 
 # ---- Real data ----------------------------------------------------------------------------------------------------
-rd <- function(ds) { p <- file.path(out, sprintf("real_compare_%s.rds", ds)); if (file.exists(p)) readRDS(p) else NULL }
+rd <- function(ds) { p <- file.path(out, sprintf("real_compare_%s.rds", ds)); if (!file.exists(p)) return(NULL); x <- readRDS(p)
+  p6 <- file.path(out, sprintf("real_compare_%s_F6.rds", ds))                      # F6 was run on its own (ONLY=F6): add its rows to the main file
+  if (file.exists(p6)) { y <- readRDS(p6); for (n in c("rows", "exercise", "prcp", "windows")) if (!is.null(y[[n]])) x[[n]] <- rbind(x[[n]], y[[n]], fill = TRUE) }
+  x }
 real <- lapply(c(fantasia = "fantasia", prcp = "prcp", exercise = "exercise"), rd); real <- Filter(Negate(is.null), real)
 if (length(real)) {
   rows <- rbindlist(lapply(names(real), function(ds) real[[ds]]$rows[, dataset := ds]))

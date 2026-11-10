@@ -12,11 +12,12 @@ source("experiments/ou_logrr/lib.R"); source("experiments/m3plus/lib.R")   # can
 #'   F5 M3 priors anchor   the production tau priors (tau_p 3-6, tau_s 100-300 s) with the candidate's observation model: isolates the observation layer
 CAND_VARIANTS <- list(
   F1 = list(tau_prior = "spark", anchor = TRUE), F2 = list(tau_prior = "spark", anchor = FALSE), F3 = list(tau_prior = "effector", anchor = TRUE),
-  F4 = list(tau_prior = "spark", bounds = list(p = c(3, 60)), anchor = TRUE), F5 = list(tau_prior = "spark", bounds = list(s = c(100, 300)), anchor = TRUE))
+  F4 = list(tau_prior = "spark", bounds = list(p = c(3, 60)), anchor = TRUE), F5 = list(tau_prior = "spark", bounds = list(s = c(100, 300)), anchor = TRUE),
+  F6 = list(tau_prior = "spark", bounds = list(s = c(100, 300)), anchor = TRUE, sigma_free = TRUE))     # F6 = F5 with the timing error sigma_t estimated (prior 0.5-20 ms, as the production jitter)
 
 #' Fit one candidate variant to a prepared series (the anchor, when used, is the production one).
 fit_cand_variant <- function(series, v, sigma_t = 0.001) {
-  pri <- ou_priors(v$tau_prior, sigma_t = sigma_t, lambda_P = if (isTRUE(v$anchor)) series$priors$energy_ratio else NULL, bounds = v$bounds)
+  pri <- ou_priors(v$tau_prior, sigma_t = sigma_t, lambda_P = if (isTRUE(v$anchor)) series$priors$energy_ratio else NULL, bounds = v$bounds, sigma_free = isTRUE(v$sigma_free))
   tryCatch(fit_candidate(series$dy, pri, hessian = FALSE), error = function(e) NULL)
 }
 

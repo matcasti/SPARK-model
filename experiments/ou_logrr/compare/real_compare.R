@@ -7,7 +7,8 @@
 # ==============================================================================
 source("analysis/00_setup.R"); source("experiments/ou_logrr/compare/lib.R")
 args <- commandArgs(TRUE); datasets <- if (length(args)) args else c("fantasia", "prcp", "exercise"); n_cores <- max(1L, min(5L, cfg$cores - 2L))
-MODELS <- c("M3", names(CAND_VARIANTS))
+ONLY <- Sys.getenv("ONLY", ""); SUFFIX <- if (nzchar(ONLY)) paste0("_", ONLY) else ""             # ONLY=F6: output only that variant (M3 is still fitted: the agreement with it is part of the table)
+MODELS <- if (nzchar(ONLY)) ONLY else c("M3", names(CAND_VARIANTS))
 innov_diag <- function(z) { z <- z[is.finite(z)]; n <- length(z)
   c(ks_p = suppressWarnings(ks.test(pnorm(z), "punif")$p.value), pacf_viol = sum(abs(pacf(z, lag.max = 20, plot = FALSE)$acf) > 1.96 / sqrt(n))) }
 
@@ -18,7 +19,7 @@ fit_models <- function(rr) {
   if (!is.null(m3)) { st <- m3$states; p <- m3$params; d <- innov_diag(m3$innovations)
     out$M3 <- list(tau_p = 1 / p$kp, tau_s = 1 / p$ks, sd_p = sqrt(p$lp * p$sig2), sd_s = sqrt(p$sig2), nu0 = p$nu0, lp = p$lp, xp = st[, "X_p"], xs = st[, "X_s"], xpv = st[, "X_p_var"], xsv = st[, "X_s_var"],
                    ks_p = d[["ks_p"]], pacf_viol = d[["pacf_viol"]], rmse_ms = 1000 * sqrt(mean(m3$time_residuals^2, na.rm = TRUE)), ok = TRUE) }
-  for (v in names(CAND_VARIANTS)) { f <- fit_cand_variant(series, CAND_VARIANTS[[v]]); if (is.null(f)) next
+  for (v in if (nzchar(ONLY)) ONLY else names(CAND_VARIANTS)) { f <- fit_cand_variant(series, CAND_VARIANTS[[v]]); if (is.null(f)) next
     s <- cand_states(f); nu <- exp(-f$c); z <- innovations(f); d <- innov_diag(z)
     out[[v]] <- list(tau_p = f$par$tau_p, tau_s = f$par$tau_s, sd_p = nu * sqrt(f$par$Vp), sd_s = nu * sqrt(f$par$Vs), nu0 = nu, lp = f$par$Vp / f$par$Vs, xp = s$xp, xs = s$xs, xpv = s$xpv, xsv = s$xsv,
                      ks_p = d[["ks_p"]], pacf_viol = d[["pacf_viol"]], rmse_ms = 1000 * sqrt(mean((exp(f$c + f$x_filt[, 1] - f$x_filt[, 2]) - rr)^2)), ok = f$convergence == 0) }
@@ -38,10 +39,10 @@ exercise_metrics <- function(models, dy) {
 
 per_recording <- function(job) {
   m <- fit_models(job$rr); if (!length(m)) return(NULL)
-  rows <- rbindlist(lapply(names(m), function(nm) { x <- m[[nm]]; r3 <- m$M3
+  rows <- rbindlist(lapply(setdiff(names(m), if (nzchar(ONLY)) "M3" else character(0)), function(nm) { x <- m[[nm]]; r3 <- m$M3
     data.table(model = nm, id = job$id, n = length(job$rr), tau_p = x$tau_p, tau_s = x$tau_s, sd_p = x$sd_p, sd_s = x$sd_s, nu0 = x$nu0, lp = x$lp, ks_p = x$ks_p, pacf_viol = x$pacf_viol, rmse_ms = x$rmse_ms, ok = x$ok,
                cor_xp_M3 = if (!is.null(r3)) cor(x$xp, r3$xp) else NA_real_, cor_xs_M3 = if (!is.null(r3)) cor(x$xs, r3$xs) else NA_real_) }))
-  list(rows = rows, exercise = if (job$dataset == "exercise") exercise_metrics(m, job$rr) else NULL, states = if (job$dataset == "prcp") lapply(m, function(x) x[c("xp", "xs", "xpv", "xsv")]) else NULL)
+  list(rows = rows, exercise = if (job$dataset == "exercise") exercise_metrics(m[setdiff(names(m), if (nzchar(ONLY)) "M3" else character(0))], job$rr) else NULL, states = if (job$dataset == "prcp") lapply(m, function(x) x[c("xp", "xs", "xpv", "xsv")]) else NULL)
 }
 
 icc31 <- function(a, b) { x <- cbind(a, b); k <- is.finite(rowSums(x)); x <- x[k, , drop = FALSE]; n <- nrow(x); if (n < 5) return(NA_real_)
@@ -67,5 +68,5 @@ for (ds in datasets) {
     wa <- drop_failed(map_recordings(win(w$stability_A), per_recording, n_cores), "window"); wb <- drop_failed(map_recordings(win(w$stability_B), per_recording, n_cores), "window")
     out$windows <- rbind(rbindlist(lapply(wa, `[[`, "rows"))[, window := "A"], rbindlist(lapply(wb, `[[`, "rows"))[, window := "B"])
     out$group <- fits$index[, .(id = SubjectID, Group)] }
-  saveRDS(out, sprintf("experiments/ou_logrr/_out/real_compare_%s.rds", ds))
+  saveRDS(out, sprintf("experiments/ou_logrr/_out/real_compare_%s%s.rds", ds, SUFFIX))
 }

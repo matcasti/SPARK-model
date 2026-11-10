@@ -146,3 +146,22 @@ No variant meets the rule. The ones that reproduce M3's point estimates (F1, F5;
 - **What the candidate adds is a capability, not accuracy:** a level `c` in ln RR units and the `h = (1 - b_p, -(1 - b_s))` hook for blockade data (steps 6-8, not done). F5 is the natural starting point for that module (it does not change what production reports); it would need steps 6-8 on the Lancaster "Blocker data" (or equivalent) before any claim.
 
 Caveats: the thresholds are mine (S3 amended after seeing that M3 itself misses the band in tilt); two simulation generators and one parameter draw each; Fantasia reliability is 40 recordings; 313 real recordings come from three datasets with the production windows. **Not tested:** a variant with the timing noise sigma_t estimated under M3's jitter prior (the sheet fixes it on purpose, but it is the most likely cause of the differences in calibration, KS on PRCP and tau_p reliability), an oscillator, blockade steps 6-8, and the sheet's generator G2 / scenarios E3-E4.
+
+## F6: the candidate with the timing error sigma_t estimated (2026-11-10)
+
+F6 = F5 (M3 priors, anchor, the candidate's ln RR observation) with sigma_t estimated under the production jitter prior (log-normal, 0.5-20 ms) instead of fixed at 1 ms: the most likely cause, I thought, of the gaps of F5 against M3 in calibration, KS and tau_p reliability. `ONLY=F6` runs of `compare/sim_compare.R` and `compare/real_compare.R`; `compare/verdict.R` merges them with the earlier files.
+
+**The hypothesis is not supported.** F6 has the same decision cells as F5 (6 failing cells: S2 calibration in five groups, S4 time constants in exercise) and no gain on real data:
+
+| | M3 | F5 | F6 |
+|---|---|---|---|
+| KS pass (313 recordings) | 22.0% | 20.1% | 17.9% |
+| PACF violations | 9.3 | 9.6 | 9.3 |
+| Exercise: vagal reaches half first | 99% | 98% | 95% |
+| PRCP tilts with both expected signs | 98% | 98% | 98% |
+| Fantasia ICC SD_p / SD_s / tau_p / tau_s | 0.95 / 0.90 / 0.88 / 0.31 | 0.95 / 0.91 / 0.75 / 0.37 | 0.92 / 0.89 / **0.66** / 0.39 |
+| AUC young vs older tau_p | 0.14 | 0.30 | 0.12 |
+| Correlation of the states with M3 | - | 0.99 / 1.00 | 0.99 / 1.00 |
+
+Estimating sigma_t does not repair the calibration or the reliability of tau_p (it lowers the latter further, 0.75 -> 0.66); what separates the candidate from M3 is not the timing noise. The verdict above stands: M3 stays the default.
+

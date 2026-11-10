@@ -86,19 +86,20 @@ rts_smooth <- function(acc, c_hat) {
 
 # ---- Priors, objective, fit -----------------------------------------------------------------------------------------------
 #' Log-normal-in-tau priors (Normal on ln tau). tau_prior "spark": tau_p 3-6 s, tau_s 60-100 s at +-2 sd; "effector": 0.5-2 s and 10-20 s.
-ou_priors <- function(tau_prior = c("spark", "effector"), sigma_t = 0.001, lambda_P = NULL, bounds = NULL) {
+ou_priors <- function(tau_prior = c("spark", "effector"), sigma_t = 0.001, lambda_P = NULL, bounds = NULL, sigma_free = FALSE, sigma_bounds_ms = c(0.5, 20)) {
   tau_prior <- match.arg(tau_prior)
   b <- if (tau_prior == "spark") list(p = c(3, 6), s = c(60, 100)) else list(p = c(0.5, 2), s = c(10, 20))
   if (!is.null(bounds)) b <- modifyList(b, bounds)                              # e.g. list(p = c(3, 60)) for a wide tau_p prior
   mu <- function(x) mean(log(x)); sd2 <- function(x) diff(log(x)) / 4                # +-2 sd
-  list(tau_prior = tau_prior, mu_p = mu(b$p), sd_p = sd2(b$p), mu_s = mu(b$s), sd_s = sd2(b$s), sigma_t = sigma_t, lambda_P = lambda_P)
+  list(tau_prior = tau_prior, mu_p = mu(b$p), sd_p = sd2(b$p), mu_s = mu(b$s), sd_s = sd2(b$s), sigma_t = sigma_t, lambda_P = lambda_P,
+       sigma_free = sigma_free, mu_sig = mean(log(sigma_bounds_ms / 1000)), sd_sig = diff(log(sigma_bounds_ms)) / 4)     # sigma_free: R-peak localisation error estimated, log-normal prior as the production jitter
 }
 
 #' theta = (ln tau_p, ln(tau_s - tau_p), ln Vp, ln Vs); with a fixed ratio lambda_P (V_p / V_s) theta has three elements (ln Vs last).
 theta_to_par <- function(theta, pri) {
   tp <- exp(theta[1]); ts <- tp + exp(theta[2])
   if (is.null(pri$lambda_P)) { Vp <- exp(theta[3]); Vs <- exp(theta[4]) } else { Vs <- exp(theta[3]); Vp <- pri$lambda_P * Vs }
-  list(tau_p = tp, tau_s = ts, Vp = Vp, Vs = Vs, sigma_t = pri$sigma_t)
+  list(tau_p = tp, tau_s = ts, Vp = Vp, Vs = Vs, sigma_t = if (isTRUE(pri$sigma_free)) exp(theta[length(theta)]) else pri$sigma_t)
 }
 
 #' Negative log posterior (profiled log-likelihood + log-priors on ln tau_p, ln tau_s). Extreme parameters return a large finite penalty.
@@ -106,7 +107,8 @@ neg_log_post <- function(theta, y, dt, pri, h = c(1, -1), skip = NULL, R = NULL,
   par <- theta_to_par(theta, pri)
   val <- tryCatch({
     acc <- kf_run(y, dt, par, h = h, skip = skip, R = R)
-    lp <- profile_level(acc)$logLik + dnorm(log(par$tau_p), pri$mu_p, pri$sd_p, log = TRUE) + dnorm(log(par$tau_s), pri$mu_s, pri$sd_s, log = TRUE)
+    lp <- profile_level(acc)$logLik + dnorm(log(par$tau_p), pri$mu_p, pri$sd_p, log = TRUE) + dnorm(log(par$tau_s), pri$mu_s, pri$sd_s, log = TRUE) +
+      (if (isTRUE(pri$sigma_free)) dnorm(log(par$sigma_t), pri$mu_sig, pri$sd_sig, log = TRUE) else 0)
     -lp
   }, error = function(e) penalty)
   if (!is.finite(val)) penalty else val
@@ -119,7 +121,7 @@ fit_candidate <- function(rr, pri = ou_priors(), h = c(1, -1), skip = NULL, R = 
   if (median(rr) > 20) rr <- rr / 1000                                      # milliseconds
   y <- log(rr); dt <- rr; v <- var(y)
   th0 <- if (!is.null(start)) start else c(log(exp(pri$mu_p)), log(exp(pri$mu_s) - exp(pri$mu_p)),
-                                             if (is.null(pri$lambda_P)) c(log(0.5 * v), log(0.5 * v)) else log(v / (1 + pri$lambda_P)))
+                                             if (is.null(pri$lambda_P)) c(log(0.5 * v), log(0.5 * v)) else log(v / (1 + pri$lambda_P)), if (isTRUE(pri$sigma_free)) pri$mu_sig)
   opt <- optim(th0, neg_log_post, y = y, dt = dt, pri = pri, h = h, skip = skip, R = R, method = "BFGS", control = list(maxit = 500, reltol = 1e-10))
   par <- theta_to_par(opt$par, pri)
   acc <- kf_run(y, dt, par, h = h, skip = skip, R = R, store = TRUE); prof <- profile_level(acc)

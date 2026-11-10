@@ -6,6 +6,7 @@
 # Output: experiments/ou_logrr/_out/compare_sim_<scenario>.rds
 # ==============================================================================
 source("analysis/00_setup.R"); source("experiments/ou_logrr/compare/lib.R"); source("experiments/ou_logrr/sim.R")
+ONLY <- Sys.getenv("ONLY", ""); SUFFIX <- if (nzchar(ONLY)) paste0("_", ONLY) else ""           # ONLY=F6: run just that variant (M3 and the others are in the earlier files of the same seeds)
 args <- commandArgs(TRUE); scen <- if (length(args)) args else c("stationary", "rsa", "exercise", "tilt", "G1_E1", "G1_E2")
 n_cores <- max(1L, min(5L, cfg$cores - 2L)); DUR <- 420
 N <- c(stationary = 30L, rsa = 60L, exercise = 60L, tilt = 60L, G1_E1 = 40L, G1_E2 = 40L)
@@ -49,9 +50,9 @@ one <- function(job) {
         chg_p = ex$chg_p %||% NA_real_, chg_s = ex$chg_s %||% NA_real_, t50_p = ex$t50_p %||% NA_real_, t50_s = ex$t50_s %||% NA_real_,
         t50_p_true = if (!is.null(ev)) t50(tp, tt, ev[1], ev[2]) else NA_real_, t50_s_true = if (!is.null(ev)) t50(ts, tt, ev[1], ev[2]) else NA_real_)
   }
-  for (sm in c(FALSE, TRUE)) { m <- tryCatch(m3_states(series, smooth = sm, units = units), error = function(e) NULL)
+  if (!nzchar(ONLY)) for (sm in c(FALSE, TRUE)) { m <- tryCatch(m3_states(series, smooth = sm, units = units), error = function(e) NULL)
     if (!is.null(m)) add("M3", m, sm, c(m$fit$tau_p, m$fit$tau_s)) }
-  for (v in names(CAND_VARIANTS)) { f <- fit_cand_variant(series, CAND_VARIANTS[[v]]); if (is.null(f)) next
+  for (v in if (nzchar(ONLY)) ONLY else names(CAND_VARIANTS)) { f <- fit_cand_variant(series, CAND_VARIANTS[[v]]); if (is.null(f)) next
     for (sm in c(FALSE, TRUE)) add(v, cand_states(f, smooth = sm, units = units), sm, c(f$par$tau_p, f$par$tau_s)) }
   rbindlist(rows)
 }
@@ -63,5 +64,5 @@ for (sc in scen) {
          else lapply(seq_len(N[[sc]]), function(i) list(scenario = sc, sim = i, seed = id_seed(paste("ou", sc, i), cfg$seed)))
   log_msg("Scenario %s: %d simulated recordings", sc, length(jobs))
   res <- rbindlist(drop_failed(map_recordings(jobs, one, n_cores), "simulation"), fill = TRUE)
-  saveRDS(res, sprintf("experiments/ou_logrr/_out/compare_sim_%s.rds", sc))
+  saveRDS(res, sprintf("experiments/ou_logrr/_out/compare_sim_%s%s.rds", sc, SUFFIX))
 }
