@@ -1,5 +1,5 @@
 # ==============================================================================
-# 13_figures.R -- regenerate all manuscript figures from the saved results.
+# 17_figures.R -- regenerate all manuscript figures from the saved results.
 #
 # Reads   results/*.rds (whichever exist; a figure whose inputs are missing is skipped)
 # Writes  manuscript/figures/<name>.<format>   (names in FIGURE_REGISTRY, R/report/figures.R)

@@ -293,12 +293,38 @@ check("Fantasia comparable table: five quantities, group medians in bpm equivale
       nrow(fc) == 5 && all(c("median1", "median2", "cliff_delta", "icc_log") %in% names(fc)) && !any(grepl("^p", names(fc))) && isTRUE(all.equal(fc[variable == "Sd_P_bpm", median1], 60 * median(fake_tab$Sd_P_Hz[1:6]))) &&
       isTRUE(all.equal(fc[variable == "Sd_S_bpm", icc_log], 0.75)) && isTRUE(all.equal(fc[variable == "Tau_P", icc_log], 0.7)) && is.na(fc[variable == "mean_hr", icc_log]))
 
+# Perturbation-response descriptors, second-stage HMM, oscillator simulator, blockade helpers
+tg <- 0:599; dd <- ifelse(tg < 100, 0.5, ifelse(tg < 220, 8, ifelse(tg < 300, 4, 0.5)))
+r1 <- distance_descriptors(tg, dd, c(100, 220), H = 200, hold = 15, delta = 3.7)
+check("descriptors: Dmax is the largest distance in the perturbation, Trec the start of the first sustained return, Preturn within H",
+      r1[["Dmax"]] == 8 && r1[["Trec"]] == 80 && r1[["Preturn"]] == 1 && r1[["follow_s"]] == 379)
+check("descriptors: no return within a shorter horizon gives Preturn 0; a follow-up shorter than H without return gives NA",
+      distance_descriptors(tg, dd, c(100, 220), H = 60, hold = 15, delta = 3.7)[["Preturn"]] == 0 &&
+      is.na(distance_descriptors(tg[1:250], dd[1:250], c(100, 220), H = 200, hold = 15, delta = 3.7)[["Preturn"]]))
+set.seed(2); ar <- function(rho, n = 2e5) { w <- sqrt(1 - rho^2) * rnorm(n); w[1] <- rnorm(1); as.numeric(stats::filter(w, rho, method = "recursive")) }
+check("tolerance: the stationary distance of two independent unit drives exceeds STATE_DELTA about 0.1% of the time",
+      abs(mean(sqrt(ar(0.8)^2 + ar(0.99)^2) > STATE_DELTA) - 0.001) < 0.0015)
+set.seed(4); truth <- c(rep(1L, 80), rep(2L, 60), rep(1L, 60)); mu_true <- rbind(c(0, 0), c(-0.04, 0.05)); Vh <- c(1e-3, 4e-4)
+vt <- cbind(runif(200, 2e-4, 8e-4), runif(200, 1e-4, 4e-4)); xh <- t(sapply(truth, function(k) mu_true[k, ] + rnorm(2, 0, sqrt(Vh))))
+yh <- xh + cbind(rnorm(200, 0, sqrt(vt[, 1])), rnorm(200, 0, sqrt(vt[, 2]))); hf <- hmm_fit(yh, vt, Vh, 2)
+check("aware HMM recovers two regimes on synthetic states (path accuracy above 0.9)", max(mean(hf$path == truth), mean(hf$path == 3L - truth)) > 0.9)
+so <- simulate_rr_osc(120, 1 / 4, 1 / 150, 2, 9e-4, 0.02, seed = 3, osc = list(alpha = 0.18, f_hz = 0.25, lo = 0.5))
+check("oscillator simulator: beats increasing, RR plausible, true drives at the beats", all(diff(so$t) > 0) && all(so$rr > 0.3 & so$rr < 2.5) && all(c("x_p", "x_s", "z1") %in% names(so)))
+check("blockade: a double detection (RR below 45% of its neighbours) is removed", length(clean_double_detections(c(seq(0, 10, by = 0.8), 5.65))) == 13)
+g <- geometric_mean_ci(c(0.1, 0.2, 0.4), n_boot = 200, seed = 1)
+check("blockade: geometric mean and its bootstrap interval", isTRUE(all.equal(g[["gm"]], 0.2)) && g[["lo"]] <= g[["gm"]] && g[["gm"]] <= g[["hi"]])
+fits_b <- data.table(subject = rep(1:2, each = 3), day = c(1, 1, 2, 1, 1, 2), cond = rep(c("saline", "atropine_high", "propranolol"), 2), breathing = "spontaneous",
+                     SD_p = c(1, 0.2, 1.5, 2, 0.2, 2), SD_s = c(1, 0.5, 1, 1, 0.25, 1), hr = c(60, 100, 58, 70, 110, 68), lambda_P = 2, sd_rr_ms = c(50, 5, 60, 40, 4, 40))
+fits_b <- rbind(fits_b, data.table(subject = 1:2, day = 2, cond = "saline", breathing = "spontaneous", SD_p = c(1, 1), SD_s = 1, hr = 60, lambda_P = 2, sd_rr_ms = 50))
+rb <- blockade_ratios(fits_b)
+check("blockade: ratios use saline of the same day (day 2 for propranolol alone)", isTRUE(all.equal(rb[cond == "atropine_high" & subject == 2, SD_p], 0.1)) && isTRUE(all.equal(rb[cond == "propranolol" & subject == 1, SD_p], 1.5)))
+
 if (nzchar(Sys.getenv("SPARK_E2E"))) {
   log_msg("End-to-end run of all scripts on synthetic data...")
   system2("Rscript", "tests/fixtures/make_synthetic_data.R")
   check("run_all.R completes", system2("Rscript", "tools/run_all.R") == 0)
   need <- unlist(lapply(PIPELINE, `[[`, "writes"))                       # pipeline.R
   check("all result files exist", all(file.exists(file.path(cfg$paths$results, paste0(need, ".rds")))))
-  check("all figures exist", all(paste0(names(FIGURE_REGISTRY), ".png") %in% list.files(cfg$paths$figures)))
+  check("all figures exist (the blockade figure needs the optional Lancaster data)", all(paste0(setdiff(names(FIGURE_REGISTRY), "fig11_blockade"), ".png") %in% list.files(cfg$paths$figures)))
 }
 log_msg("%d checks passed.", n_pass)

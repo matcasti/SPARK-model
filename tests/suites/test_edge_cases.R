@@ -3,7 +3,7 @@
 # a single-step tilt protocol). Also renders the R chunks of the manuscript and supplement.
 #   Rscript tests/suites/test_edge_cases.R
 cases <- c("nobp_step", "noangle", "noevent")
-scripts <- c("analysis/model/01_fit_all.R", "analysis/datasets/05_prcp.R", "analysis/datasets/06_fantasia.R", "analysis/datasets/09_exercise.R", "analysis/validation/10_hrv_comparators.R", "analysis/13_figures.R")
+scripts <- c("analysis/model/01_fit_all.R", "analysis/datasets/05_prcp.R", "analysis/datasets/06_fantasia.R", "analysis/datasets/09_exercise.R", "analysis/validation/10_hrv_comparators.R", "analysis/17_figures.R")
 cfg_file <- normalizePath("tests/fixtures/config_test.R"); fails <- character()
 for (cs in cases) {
   root <- file.path(tempfile("edge"), cs); dir.create(root, recursive = TRUE)

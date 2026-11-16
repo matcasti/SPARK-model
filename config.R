@@ -27,7 +27,11 @@ cfg <- list(
     prcp     = "data/prcp",
     prcp_events = "data/prcp_events.csv",   # protocol annotations of the PRCP records (tools/prep-data.R); optional
     fantasia = "data/fantasia",
-    exercise = "data/tmst"          # two-minute step test (rest - exercise - rest)
+    exercise = "data/tmst",         # two-minute step test (rest - exercise - rest)
+    # Pharmacological blockade (Lancaster "Blocker data", CC BY-NC): downloaded by hand into blockade_zip (the server refuses scripted downloads),
+    # prepared by tools/prep/blockade.R into `blockade`. Optional: without it, analysis/datasets/15_blockade.R records that the data are absent.
+    blockade     = "data/blockade",
+    blockade_zip = "data-raw/blockade/BlockerData.zip"
   ),
 
   # CSV layout written by tools/prep-data.R: time (s), rri (s) and, when available, systolic,
@@ -99,6 +103,15 @@ cfg <- list(
                   smooth_s = 10, hold_s = 20, tol_sd = 1.0, rest_skip_s = 20, end_window_s = 15, max_exercise_s = 360),
 
   hrv   = list(lf = c(0.04, 0.15), hf = c(0.15, 0.40), fs = 4, min_dur_lfhf_s = 120),
+
+  # Pharmacological blockade (analysis/datasets/15_blockade.R): 5-min segments with their first trim_s skipped; bootstrap over subjects
+  blockade = list(trim_s = 20, min_beats = 150L, n_boot = 2000L, seed = 11L),
+  # Partial pooling of the time constants (analysis/datasets/14_fantasia_pooling.R): weak priors (95% bounds, s); empirical-Bayes priors from the other half
+  pooling = list(weak_p = c(0.5, 60), weak_s = c(10, 2000), seed = 5L),
+  # Perturbation-response descriptors (analysis/validation/16_state_descriptors.R). Fixed before looking at the data: dwell 15 s, 5-s smoothing (in the code),
+  # tolerance = 0.999 quantile of the stationary distance; horizons of the real recordings: exercise 300 s, tilts 100 s (the recovery window of the PRCP analysis)
+  state_descriptors = list(hold_s = 15, n_draw = 100L, horizons = c(120, 300, 600), horizon_exercise = 300, horizon_tilt = 100,
+                           duration_s = 600, horizon = list(exercise = 300, tilt = 120, shift = 300)),
   stats = list(n_boot = 10000L, alpha = 0.05),
 
 
@@ -110,6 +123,10 @@ cfg <- list(
   simulation         = list(n_per_scenario = 100L, duration_s = 420, h = 0.01, n_detect = 100L, n_prep = 12L),
   recovery_benchmark = list(n = 100L),
   calibration        = list(n_sims = 100L, duration_s = 420),
+  # Identifiability boundary (analysis/validation/13_identifiability_boundary.R): simulations per cell; tau_p fixed; axes of the grid
+  ident_boundary     = list(n_per_cell = 30L, tau_p = 4, ratios = c(1.5, 2, 4, 10, 30, 100), lambda_fixed = 2,
+                            ratio_fixed = 30, lambdas = c(0.2, 0.5, 2, 6, 20), durations = c(300, 600, 1800)),
+  descriptor_sims    = list(n_per_scenario = 60L),     # simulated recordings per scenario (exercise, tilt, shift) for the perturbation descriptors
 
   # ---- 6. Figures -----------------------------------------------------------------------------------------
   figures = list(

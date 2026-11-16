@@ -641,7 +641,7 @@ window_text <- function(config_used) guarded("results/config_used.rds", {
 
 # ---- Captions and configuration -----------------------------------------------------------------------------------------------------------
 #' "recording 12734, largest standardized response": which recording a figure shows
-#' (results/figure_info.rds, written by analysis/13_figures.R).
+#' (results/figure_info.rds, written by analysis/17_figures.R).
 example_caption <- function(figure_info, figure = "fig7_prcp") {
   info <- figure_info[[figure]]
   if (is.null(info)) return("the showcased recording")

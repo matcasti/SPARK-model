@@ -1,5 +1,5 @@
 - RR alone may leave vagal-like and sympathetic-like drives ambiguous
 - A phase-domain state-space model filters irregular RR intervals in continuous time
 - Physiological priors and a spectral anchor restrict the set of latent solutions
-- Latent states are examined during tilt, across aging and in exercise recovery
+- Atropine removes most vagal-like variability; propranolol alone does not
 - How change is split between the two drives remains conditional on the anchor

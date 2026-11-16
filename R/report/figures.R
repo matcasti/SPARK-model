@@ -1,15 +1,17 @@
 # ==============================================================================
 # R/report/figures.R -- one function per manuscript figure. Each takes `results` (a function returning a saved
 # result by name, or NULL when missing) and `cfg`, and returns list(plot, width, height, info).
-# analysis/13_figures.R saves them; a figure whose inputs are missing is skipped with a message.
+# analysis/17_figures.R saves them; a figure whose inputs are missing is skipped with a message.
 # The look (fonts, palettes, which recording to showcase) is set in config.R, section 6 (cfg$figures);
 # the building blocks are in R/report/plots.R.
 #
 # Main:          fig1 fit diagnostics and time constants | fig4 CWT comparison
 #                fig5 non-identifiability | fig7 orthostatic perturbation
 #                fig8 Fantasia groups | fig9 exercise and recovery | fig10 Fantasia respiration / baroreflex
+#                fig11 pharmacological blockade and maneuvers
 # Supplementary: figS1 recovery under known truth | figS2 sensitivity | figS3 recovery benchmark
 #                figS4 numerical checks | figS5 event detection | figS6 state-space landscapes | figS7 PRCP responses by maneuver
+#                figS8 identifiability boundary | figS9 perturbation-response descriptors
 # Every figure answers one question; panels of a row share their vertical extent and panels that share a
 # time axis are facets of one plot (R/report/plots.R).
 # ==============================================================================
@@ -632,6 +634,88 @@ figure_prcp_maneuvers <- function(results, cfg) {
 
 
 # ---- Registry: PNG name -> builder -----------------------------------------------------------------------------------------------------
+
+# ---- Pharmacological blockade (main) -----------------------------------------------------------------------------------------
+CONDITION_LABELS <- c(atropine_high = "atropine", double = "atropine +\npropranolol", propranolol = "propranolol")
+BREATHING_LABELS <- c(spontaneous = "spontaneous breathing", paced_0.25 = "paced breathing (0.25 Hz)")
+
+figure_blockade <- function(results, cfg) {
+  blockade <- need(results, "blockade", "run analysis/datasets/15_blockade.R")
+  if (!isTRUE(blockade$available)) stop("the blockade data were not available when analysis/datasets/15_blockade.R ran", call. = FALSE)
+  states <- figure_palette(cfg, "states")
+  r <- melt(blockade$ratios, id.vars = c("subject", "breathing", "cond"), measure.vars = c("SD_p", "SD_s"), variable.name = "drive", value.name = "ratio")
+  r[, drive := factor(ifelse(drive == "SD_p", "x_p", "x_s"), c("x_p", "x_s"))]
+  sm <- rbind(blockade$summary[, .(breathing, cond, drive = "x_p", gm = SD_p, lo = SD_p_lo, hi = SD_p_hi)], blockade$summary[, .(breathing, cond, drive = "x_s", gm = SD_s, lo = SD_s_lo, hi = SD_s_hi)])
+  sm[, drive := factor(drive, c("x_p", "x_s"))]
+  for (d in list(r, sm)) { d[, cond := factor(cond, names(CONDITION_LABELS), CONDITION_LABELS)]; d[, breathing := factor(breathing, names(BREATHING_LABELS), BREATHING_LABELS)] }
+  dodge <- position_dodge(width = 0.55)
+  a <- ggplot(r, aes(cond, ratio, colour = drive)) + geom_hline(yintercept = 1, linetype = 2, colour = "grey50") +
+    geom_point(position = position_jitterdodge(jitter.width = 0.12, dodge.width = 0.55, seed = 1), size = 1.6, alpha = 0.55) +
+    geom_pointrange(data = sm, aes(y = gm, ymin = lo, ymax = hi), position = dodge, size = 0.45, linewidth = 0.8) +
+    facet_wrap(~breathing) + scale_y_log10(breaks = c(0.03, 0.1, 0.3, 1, 3)) +
+    scale_colour_manual(values = c(x_p = states[["x_p"]], x_s = states[["x_s"]]), labels = state_labels(), name = NULL) +
+    labs(x = NULL, y = "SD of the drive, ratio to saline", title = "Response to pharmacological blockade",
+         subtitle = sprintf("%d volunteers; points: subjects; ranges: geometric mean, 95%% CI", blockade$n_subjects)) + theme_spark(cfg)
+  ch <- copy(blockade$change)[, signal := factor(signal, c("MSNA", "x_s", "x_p", "HR"))]
+  ch[, window := factor(window, c("breath_hold_late", "hyperventilation"), c("breath-hold (second half)", "hyperventilation"))]
+  sig_col <- c(MSNA = "#6B6B6B", x_s = states[["x_s"]], x_p = states[["x_p"]], HR = figure_palette(cfg, "accent"))
+  sig_lab <- c(MSNA = "MSNA", tex_named(c(x_s = "$x_s$", x_p = "$x_p$")), HR = "HR")
+  b <- ggplot(ch, aes(signal, change, colour = signal)) + geom_hline(yintercept = 0, linetype = 2, colour = "grey50") +
+    geom_boxplot(outlier.shape = NA, width = 0.55, fill = NA) + geom_point(position = position_jitter(width = 0.12, height = 0, seed = 2), size = 1.5, alpha = 0.7) + facet_wrap(~window, scales = "free_y") +
+    scale_colour_manual(values = sig_col, guide = "none") + scale_x_discrete(labels = sig_lab) +
+    labs(x = NULL, y = "Change from baseline (baseline SD)", title = "Maneuvers in the saline period",
+         subtitle = sprintf("%d sessions; MSNA: integrated muscle sympathetic nerve signal", uniqueN(ch[, paste(subject, day)]))) + theme_spark(cfg)
+  list(plot = figure_grid(list(a, b), ncol = 1, heights = c(1.1, 1)), width = 9, height = 8, info = list())
+}
+
+
+# ---- Identifiability boundary (supplement) ---------------------------------------------------------------------------------------
+figure_identifiability_boundary <- function(results, cfg) {
+  ib <- need(results, "ident_boundary", "run analysis/validation/13_identifiability_boundary.R")
+  models <- figure_palette(cfg, "models"); d <- ib$by_cell[axis == "time-scale ratio"]
+  d[, length := factor(paste(duration / 60, "min"), paste(sort(unique(duration)) / 60, "min"))]
+  base <- function(y, ylab, title, percent = FALSE) ggplot(d, aes(ratio, .data[[y]], colour = spec)) + geom_line() + geom_point(size = 1.6) + facet_wrap(~length) +
+    scale_x_log10(breaks = setdiff(cfg$ident_boundary$ratios, 1.5), labels = function(x) format(x, trim = TRUE, drop0trailing = TRUE)) +
+    scale_colour_manual(values = models, labels = tex(spec_tex(names(models))), name = NULL) +
+    (if (percent) scale_y_continuous(labels = scales::percent, limits = c(0, 1)) else scale_y_continuous(limits = c(min(0, min(d[[y]], na.rm = TRUE)), 1))) +
+    labs(x = tex("$\\tau_s/\\tau_p$"), y = ylab, title = title) + theme_spark(cfg)
+  a <- base("cor_x_s", "Correlation with the truth", tex(sprintf("Sympathetic-like state $x_s$ ($\\lambda_P$ = %g)", cfg$ident_boundary$lambda_fixed)))
+  b <- base("collapse", "Fits with one drive taking all the variance", "Collapse to one process", percent = TRUE)
+  v <- ib$by_cell[axis == "variance ratio" & spec == "M3"]; v <- melt(v, id.vars = c("lambda", "duration"), measure.vars = c("cor_x_p", "cor_x_s"), variable.name = "state")
+  v[, state := factor(sub("cor_", "", state), c("x_p", "x_s"))]; v[, length := factor(paste(duration / 60, "min"), paste(sort(unique(duration)) / 60, "min"))]
+  states <- figure_palette(cfg, "states")
+  c <- ggplot(v, aes(lambda, value, colour = state, linetype = length)) + geom_line() + geom_point(size = 1.4) + scale_x_log10(breaks = cfg$ident_boundary$lambdas, labels = function(x) format(x, trim = TRUE, drop0trailing = TRUE)) +
+    scale_colour_manual(values = c(x_p = states[["x_p"]], x_s = states[["x_s"]]), labels = state_labels(), name = NULL) + scale_linetype_discrete(name = NULL) + ylim(0, 1) +
+    labs(x = tex("$\\lambda_P = V_p/V_s$"), y = "Correlation with the truth", title = tex(sprintf("Variance ratio, $M_3$ ($\\tau_s/\\tau_p$ = %g)", cfg$ident_boundary$ratio_fixed))) + theme_spark(cfg)
+  list(plot = figure_grid(list(a, b, c), ncol = 1), width = 9, height = 10, info = list())
+}
+
+
+# ---- Perturbation-response descriptors (supplement) --------------------------------------------------------------------------------
+figure_state_descriptors <- function(results, cfg) {
+  sd <- need(results, "state_descriptors", "run analysis/validation/16_state_descriptors.R")
+  phases <- figure_palette(cfg, "phases"); sc_col <- c(exercise = phases[["exercise"]], tilt = phases[["baseline"]], shift = "#6B6B6B")
+  sim <- sd$sim[scenario %in% c("exercise", "tilt")]
+  a <- ggplot(sim[is.finite(Trec_true) & is.finite(Trec)], aes(Trec_true, Trec, colour = scenario)) + geom_abline(linetype = 2, colour = "grey50") +
+    geom_linerange(aes(ymin = Trec_lo, ymax = Trec_hi), alpha = 0.35) + geom_point(size = 1.6) + scale_x_log10() + scale_y_log10() +
+    scale_colour_manual(values = sc_col, name = NULL) + labs(x = "True recovery time (s)", y = "Estimated (median, 90% interval)", title = "Recovery time", subtitle = "simulations with known states") + theme_spark(cfg)
+  b <- ggplot(sim, aes(Dmax_true, Dmax, colour = scenario)) + geom_abline(linetype = 2, colour = "grey50") + geom_linerange(aes(ymin = Dmax_lo, ymax = Dmax_hi), alpha = 0.35) +
+    geom_point(size = 1.6) + scale_x_log10() + scale_y_log10() + scale_colour_manual(values = sc_col, name = NULL) +
+    labs(x = "True maximum displacement", y = "Estimated", title = "Maximum displacement", subtitle = "stationary-SD units") + theme_spark(cfg)
+  h <- cfg$state_descriptors$horizons
+  ret <- rbindlist(lapply(h, function(H) data.table(H = H, share = mean(sd$exercise[[paste0("Preturn_", H)]], na.rm = TRUE), n = sum(is.finite(sd$exercise[[paste0("Preturn_", H)]])))))
+  c <- ggplot(ret, aes(factor(H), share)) + geom_col(fill = phases[["recovery"]], width = 0.6) + geom_text(aes(label = sprintf("%.2f", share)), vjust = -0.4, size = 3.2) +
+    scale_y_continuous(limits = c(0, 1.08), labels = scales::percent) + labs(x = "Horizon H after the end of exercise (s)", y = "Probability of return (mean)", title = "Return depends on the horizon",
+                                                                           subtitle = sprintf("%d exercise recordings", nrow(sd$exercise))) + theme_spark(cfg)
+  tr <- rbind(sd$sim[, .(share = mean(transition, na.rm = TRUE)), by = .(group = paste("simulated", scenario))],
+              sd$exercise[, .(group = "exercise", share = mean(transition, na.rm = TRUE))], sd$tilt[, .(group = "tilts and stand-ups", share = mean(transition, na.rm = TRUE))])
+  tr[, group := factor(group, c("simulated exercise", "simulated tilt", "simulated shift", "exercise", "tilts and stand-ups"))]
+  d <- ggplot(tr, aes(group, share)) + geom_col(fill = "grey45", width = 0.6) + geom_text(aes(label = sprintf("%.2f", share)), vjust = -0.4, size = 3.2) +
+    scale_y_continuous(limits = c(0, 1.08), labels = scales::percent) + labs(x = NULL, y = "Regime transition at the horizon", title = "Regime transition",
+                                                                           subtitle = "simulated shift: the displacement persists") + scale_x_discrete(labels = function(x) sub(" ", "<br>", x)) + theme_spark(cfg)
+  list(plot = figure_grid(list(a, b, c, d), ncol = 2), width = 9, height = 8, info = list())
+}
+
 FIGURE_REGISTRY <- list(
   fig1_statistical_validation       = figure_fit_diagnostics,
   fig4_benchmarking_comparison      = figure_cwt_comparison,
@@ -646,5 +730,8 @@ FIGURE_REGISTRY <- list(
   figS4_supplement_checks           = figure_numerical_checks,
   figS5_event_detection             = figure_event_detection,
   figS6_landscapes                  = figure_landscapes,
-  figS7_maneuvers                   = figure_prcp_maneuvers
+  figS7_maneuvers                   = figure_prcp_maneuvers,
+  fig11_blockade                    = figure_blockade,
+  figS8_identifiability_boundary    = figure_identifiability_boundary,
+  figS9_state_descriptors           = figure_state_descriptors
 )

@@ -7,7 +7,7 @@
 #   * tests/suites/test_workflow  the declarations must match the read_result()/write_result() calls in the scripts.
 # config.R says WHAT is analysed and how; this file says IN WHICH ORDER and from what to what.
 #
-# reads   "data"  the CSV recordings (data/);   "name"  results/name.rds is required;
+# reads   "data"  the CSV recordings (data/);   "blockade"  the prepared blockade files (data/blockade/);   "name"  results/name.rds is required;
 #         "name?" it is used when present;       "*"     every result that exists (the figures)
 # writes  results/<name>.rds;   files  other files the step writes ({results} and {figures} are the folders of config.R)
 # ==============================================================================
@@ -41,7 +41,15 @@ PIPELINE <- list(
        reads = c("fit_prcp?", "fit_fantasia?", "fit_exercise?"), writes = "supp_checks", used_in = "Bound, calibration, equivalence checks (Figure S4)"),
   step("12", "validation/12_preprocessing_checks.R", "Data-preparation checks",
        reads = character(), writes = "prep_checks", used_in = "Data-preparation checks (earlier vs current format, cleaning gate)"),
-  step("13", "13_figures.R", "All figures",
+  step("13", "validation/13_identifiability_boundary.R", "Identifiability boundary by simulation (time-scale ratio, variance ratio, length)",
+       reads = character(), writes = "ident_boundary", used_in = "Identifiability boundary (supplement; Results 3.2)"),
+  step("14", "datasets/14_fantasia_pooling.R", "Partial pooling of the time constants (Fantasia windows A and B)",
+       reads = "data", writes = "pooling", used_in = "Prior-free check of the time constants (supplement; Results 3.4)"),
+  step("15", "datasets/15_blockade.R", "Pharmacological blockade and muscle sympathetic nerve activity (Lancaster data)",
+       reads = "blockade", writes = "blockade", used_in = "Result 6: response to autonomic blockade (Figure 5); supplement"),
+  step("16", "validation/16_state_descriptors.R", "Perturbation-response descriptors with their uncertainty",
+       reads = c("exercise", "prcp"), writes = "state_descriptors", used_in = "Perturbation-response descriptors (supplement; Results 3.5)"),
+  step("17", "17_figures.R", "All figures",
        reads = "*", writes = "figure_info", files = "{figures}", used_in = "All figures (look and examples: `cfg$figures`)")
 )
 
@@ -53,7 +61,7 @@ pipeline_reads <- function(step, which = c("all", "required", "optional")) {
   which <- match.arg(which)
   reads <- step$reads
   if (identical(reads, "*")) reads <- paste0(unique(unlist(lapply(PIPELINE[seq_len(match(step$id, pipeline_ids()) - 1L)], `[[`, "writes"))), "?")
-  reads <- setdiff(reads, "data")
+  reads <- setdiff(reads, c("data", "blockade"))
   optional <- endsWith(reads, "?")
   names <- sub("\\?$", "", reads)
   switch(which, all = names, required = names[!optional], optional = names[optional])
@@ -68,7 +76,8 @@ pipeline_outputs <- function(step, cfg) {
 #' Files a step depends on, by kind: results of earlier steps, CSV recordings and code.
 pipeline_inputs <- function(step, cfg) {
   results <- file.path(cfg$paths$results, paste0(pipeline_reads(step), ".rds"))
-  data <- if ("data" %in% step$reads) unlist(lapply(unname(cfg$paths[c("prcp", "fantasia", "exercise")]), list.files, pattern = "\\.csv$", full.names = TRUE))
+  data <- c(if ("data" %in% step$reads) unlist(lapply(unname(cfg$paths[c("prcp", "fantasia", "exercise")]), list.files, pattern = "\\.csv$", full.names = TRUE)),
+            if ("blockade" %in% step$reads) list.files(cfg$paths$blockade, pattern = "\\.csv$", full.names = TRUE, recursive = TRUE))
   code <- c(step$script, "analysis/00_setup.R", "config.R", "pipeline.R", list.files(c("R", "engine"), pattern = "\\.(R|cpp)$", recursive = TRUE, full.names = TRUE))
   list(results = results[file.exists(results)], data = data, code = code)
 }

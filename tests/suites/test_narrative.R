@@ -4,6 +4,7 @@
 for (f in c("config.R")) source(f)
 suppressPackageStartupMessages(library(data.table))
 source("R/report/manuscript_text.R")
+source("R/report/extended_text.R")
 n_pass <- 0L
 check <- function(name, cond) { if (!isTRUE(cond)) stop("FAILED: ", name, call. = FALSE); n_pass <<- n_pass + 1L; cat("ok   ", name, "\n") }
 options(spark.narrative.debug = FALSE)
@@ -111,3 +112,7 @@ check("placebo share: an interval that contains 25% does not demonstrate drift",
 check("placebo share: an interval below 25% is reported as such", grepl("below the 25%", expected_by_chance(c(0.05, 0.20))))
 
 cat(sprintf("\n%d narrative checks passed.\n", n_pass))
+
+# Text of the added analyses: missing results degrade to [PENDING], absent blockade data give a plain statement
+check("added-analysis text degrades to PENDING without results", all(grepl("PENDING", c(narrate_boundary(NULL), narrate_pooling(NULL), narrate_descriptors(NULL), abstract_blockade(NULL)))))
+check("without the blockade data the limitation says that the states were not tested under blockade", grepl("not been tested", blockade_limitation_sentence(list(available = FALSE))))

@@ -32,6 +32,7 @@ results/*
 # Public datasets: `make download` fetches them from PhysioNet (checksum-verified). The exercise cohort, data-raw/tmst/, stays in the repository
 data-raw/fantasia/*
 data-raw/prcp/*
+data-raw/blockade/*
 !data-raw/fantasia/.gitignore
 !data-raw/prcp/SHA256SUMS.txt
 .Renviron

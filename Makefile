@@ -5,7 +5,7 @@ export LC_ALL := en_US.UTF-8
 # Apple's compiler first: a Homebrew LLVM earlier in PATH cannot build the C++ filter
 export PATH := /usr/bin:$(PATH)
 
-.PHONY: help env download data prep run status stale figures test test-quick test-e2e docs render submission publish publish-check
+.PHONY: help env download data prep prep-blockade run status stale figures test test-quick test-e2e docs render submission publish publish-check
 
 help:             ## list the targets
 	@grep -E '^[a-z0-9-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:[^#]*## /\t/'
@@ -16,8 +16,11 @@ download:         ## public datasets (Fantasia, PRCP) from PhysioNet into data-r
 data:             ## download + prep: everything the analysis reads
 	$(MAKE) download
 	$(MAKE) prep
-prep:             ## raw data (data-raw/) -> CSV recordings (data/)
+prep:             ## raw data (data-raw/) -> CSV recordings (data/); also the blockade data when its zip is present
 	Rscript tools/prep-data.R
+	Rscript tools/prep/blockade.R
+prep-blockade:    ## only the Lancaster blockade data (zip downloaded by hand into data-raw/blockade/)
+	Rscript tools/prep/blockade.R
 run:              ## the whole analysis pipeline
 	Rscript tools/run_all.R
 status:           ## which steps are fresh, stale or missing
@@ -25,7 +28,7 @@ status:           ## which steps are fresh, stale or missing
 stale:            ## run only the steps that are stale or missing
 	Rscript tools/run_all.R --stale
 figures:          ## regenerate the figures from results/
-	Rscript analysis/13_figures.R
+	Rscript analysis/17_figures.R
 test-quick:       ## structure, text generators and unit checks
 	Rscript tests/run_tests.R --quick
 test:             ## every suite except the end-to-end run

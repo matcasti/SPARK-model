@@ -9,6 +9,7 @@ The estimation engine `engine/model_engine.R` is the reference implementation of
 Rscript tools/checks/check_env.R          # packages, C++ compiler, Python wfdb, Quarto: what is installed and what is missing
 Rscript tools/download-data.R      # once: Fantasia and PRCP from PhysioNet into data-raw/ (checksum-verified; `make download`)
 Rscript tools/prep-data.R          # once: raw WFDB / text files in data-raw/ -> data/<dataset>/<id>.csv (+ prep_qc.csv, prcp_events.csv)
+Rscript tools/prep/blockade.R      # optional, once: the Lancaster blockade data (zip downloaded by hand into data-raw/blockade/) -> data/blockade/
 Rscript tools/run_all.R            # the whole analysis: results/*.rds and manuscript/figures/
 Rscript tests/run_tests.R          # checks (--quick: a few minutes; --e2e: also the full pipeline on synthetic data)
 quarto render manuscript           # manuscript.qmd and supplementary.qmd read results/ and manuscript/figures/
@@ -24,7 +25,7 @@ data-raw/  --tools/prep-data.R-->  data/*.csv  --analysis/01 ... 13-->  results/
 
 | Command | What it does |
 | :-- | :-- |
-| `Rscript tools/run_all.R --list` | the 13 steps with what each reads and writes (no run) |
+| `Rscript tools/run_all.R --list` | the 17 steps with what each reads and writes (no run) |
 | `Rscript tools/run_all.R --status` | which steps are `fresh`, `stale` (an input is newer than an output) or `missing` |
 | `Rscript tools/run_all.R --stale` | runs only the steps that are stale or missing |
 | `Rscript tools/run_all.R --only=05,13` | only those steps (also `--from=05`, `--to=09`, `--skip=02`, `--dry-run`) |
@@ -44,7 +45,7 @@ To compare two runs (for example before and after a change of the code): `Rscrip
 
 ```
 config.R      every setting, in numbered sections (what is analysed and how)
-pipeline.R    the 13 steps as data: script, reads, writes (what runs, in which order, from what to what)
+pipeline.R    the 17 steps as data: script, reads, writes (what runs, in which order, from what to what)
 engine/       model_engine.R (the model), fast_filter.cpp (verified C++ port of its filter)
 analysis/     one short script per result, numbered in run order (00_setup.R is sourced by all); each reads, calls R/steps, saves
   model/        01-04: fit, recovery under known truth, identifiability, sensitivity
@@ -57,6 +58,7 @@ R/            functions only, in layers (load.R loads them in this order):
   steps/        the per-recording steps of each analysis script
   report/       notation, plots, figures, manuscript text
 tools/        prep-data.R, download-data.R, run_all.R, make_docs.R, make_submission.R
+  prep/         blockade.R and its Python readers (Lancaster blockade data)
   checks/       check_env.R, figure checks, compare_results.R, benchmark_cleaning_gate.R
 tests/        run_tests.R
   suites/       the test suites
@@ -82,6 +84,13 @@ To prepare by hand, put the raw WFDB / text files in `data-raw/` (`fantasia/`, `
 CSV columns: `time` (s, end of the interval), `rri` (s), and when available `systolic`, `diastolic`, `map`, `resp`, `angle`.
 Check `config.R` afterwards (data folders, Fantasia group regexes `y<number>` / `o<number>`, analysis windows, workload).
 
+**Pharmacological blockade data (optional).** The blockade analysis (`analysis/datasets/15_blockade.R`, Figure 5) uses the public "Blocker data" of Lancaster University
+(doi:10.17635/lancaster/researchdata/280; 7 volunteers, saline, atropine, propranolol; Creative Commons Attribution-NonCommercial). Its server refuses scripted downloads behind a
+browser challenge, which this project does not try to bypass, so download `BlockerData.zip` (about 515 MB) by hand into `data-raw/blockade/` and run `make prep` (or
+`Rscript tools/prep/blockade.R`). The preparation reads the zip without extracting it (Python with numpy, pandas and scipy: the project's `.venv`, or `SPARK_PYTHON`): segment table and
+maneuver times from the experiment logs, R peaks from the ECG and 1-s means of the integrated nerve signal, into `data/blockade/`. Without the zip the step records that the data are absent,
+the blockade figure is skipped and the manuscript prints `[PENDING]` where its numbers go.
+
 ## Requirements
 
 `Rscript tools/checks/check_env.R` lists them. Required: `data.table`, `ggplot2`, `patchwork`, `ggtext`, `biwavelet`, `numDeriv`, `MASS`, `Rcpp`, `survival`, `Matrix`, `scales`, `viridisLite`;
@@ -91,7 +100,7 @@ first in `PATH`, because a Homebrew LLVM ahead of it mixes its libc++ headers wi
 
 ## Figures and manuscript text
 
-- **Figures.** `Rscript analysis/13_figures.R` regenerates all figures from `results/` in seconds. Time series that share an axis are facets of one plot and plots are combined with patchwork, so panels stay aligned (`R/report/plots.R`). Their look is set in `config.R`, section 6
+- **Figures.** `Rscript analysis/17_figures.R` regenerates all figures from `results/` in seconds. Time series that share an axis are facets of one plot and plots are combined with patchwork, so panels stay aligned (`R/report/plots.R`). Their look is set in `config.R`, section 6
   (`cfg$figures`): file format and dpi, font and size, every palette, and the density-landscape settings (colour map, smoothing, flow arrows, basins).
 - **Which recording to showcase.** `cfg$figures$example$prcp` and `$exercise` take `"largest"` (largest standardized response, the default),
   `"median"` or a recording id such as `"prcp02"`. The choice is recorded in `results/figure_info.rds` and quoted in the figure captions.

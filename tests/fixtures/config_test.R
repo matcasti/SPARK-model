@@ -11,3 +11,8 @@ cfg$simulation <- modifyList(cfg$simulation, list(n_per_scenario = 3L, duration_
 cfg$calibration <- modifyList(cfg$calibration, list(n_sims = 6L, duration_s = 300))
 cfg$stats$n_boot <- 200L
 cfg$recovery_benchmark <- list(n = 8L)
+cfg$paths$blockade <- file.path(root, "data/blockade")                # absent in the tests: the blockade step records that the data are missing
+cfg$ident_boundary <- modifyList(cfg$ident_boundary, list(n_per_cell = 1L, ratios = c(4, 30), lambdas = c(0.5, 6), durations = 300))
+cfg$descriptor_sims <- list(n_per_scenario = 2L)
+cfg$state_descriptors <- modifyList(cfg$state_descriptors, list(n_draw = 10L, duration_s = 420))
+cfg$blockade$n_boot <- 200L

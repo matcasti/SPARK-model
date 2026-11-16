@@ -257,7 +257,7 @@ plot_state_plane <- function(paths, cfg, median_path = NULL, title = NULL, subti
       facet_wrap(~phase, nrow = 1, labeller = labeller(phase = phase_title)) + coord_cartesian(xlim = xlim, ylim = ylim, expand = FALSE) +
       scale_colour_manual(values = colours, breaks = present, guide = "none") +
       labs(x = tex(paste0("$x_p$ (", reference, " SD)")), y = tex(paste0("$x_s$ (", reference, " SD)")), title = title, subtitle = subtitle) +
-      theme_spark(cfg) + theme(legend.position = "none"))
+      theme_spark(cfg) + theme(legend.position = "none", panel.spacing.x = grid::unit(1.4, "lines")))      # room between the tick labels of adjacent panels
   }
   plot <- base + geom_path(data = paths, aes(u, v, group = interaction(id, phase), colour = phase), linewidth = 0.35, alpha = 0.55)
   if (!is.null(median_path) && nrow(median_path)) {
