@@ -38,6 +38,6 @@ data-raw/blockade/*
 .Renviron
 
 # Experimental outputs (not part of the pipeline)
-experiments/*/_out/
+experiments/**/_out/
 experiments/*/_data/
 spark-results-*.zip
