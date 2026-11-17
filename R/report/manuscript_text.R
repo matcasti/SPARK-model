@@ -11,7 +11,7 @@
 #   helpers          txt(), pct(), median_range_text(), compare_phrase(), join_and(), ...
 #   Results          narrate_identifiability(), narrate_constraints(), narrate_prcp(),
 #                    narrate_fantasia(), narrate_exercise(), landscape_sentence()
-#   Abstract         abstract_identifiability() abstract_prcp() abstract_aging() abstract_exercise()
+#   Abstract         abstract_identifiability() abstract_prcp() abstract_aging() (with the HRV R^2) abstract_exercise()
 #   Discussion       findings_summary() (number-free; the numbers are in the Abstract and the Results), sensitivity_sentence(), ...
 # ==============================================================================
 
@@ -497,13 +497,13 @@ abstract_identifiability <- function(ident) guarded("results/identifiability.rds
   m <- as.data.frame(ident$metrics)
   a <- spec_median(m, "M0", "n_solutions"); b <- spec_median(m, "M3", "n_solutions")
   c0 <- mean(m$collapse_frac[m$spec == "M0"], na.rm = TRUE); c3 <- mean(m$collapse_frac[m$spec == "M3"], na.rm = TRUE)
-  sprintf("fitting each recording from many different starting points gave a median of %s distinct solutions without physiological information versus %s with it, and one process absorbed essentially all the variability in %s versus %s of the fits",
+  sprintf("reducing multi-start solutions from a median of %s to %s and single-drive collapse from %s to %s of fits",
           num(a, 1), num(b, 1), pct(c0), pct(c3))
 })
 
 abstract_prcp <- function(prcp) guarded("results/prcp.rds", {
   s <- prcp$summary
-  sprintf("in %d tilt-table recordings, the vagal-like state decreased and the sympathetic-like state increased in %s", s$n_detected, count_of(round(s$frac_both_expected * s$n_detected), s$n_detected))
+  sprintf("During head-up tilt, the vagal-like state fell and the sympathetic-like state rose in %s recordings", count_of(round(s$frac_both_expected * s$n_detected), s$n_detected))
 })
 
 abstract_aging <- function(fantasia) guarded("results/fantasia.rds", {
@@ -512,15 +512,15 @@ abstract_aging <- function(fantasia) guarded("results/fantasia.rds", {
   big <- latent$variable[abs(latent$cliff_delta) >= NARRATIVE$effect_size]
   variability <- any(big %in% c("sd_x_p", "sd_x_s", "Sigma_sys2"))      # amplitude summaries
   kinetics    <- any(big %in% "Tau_P")                                   # fast-component time constant
-  what <- c(if (variability) "reconstructed variability", if (kinetics) "faster-component kinetics")
-  differences <- if (length(what)) paste0("showed differences in ", paste(what, collapse = " and "))
-                 else "showed no latent summary with a medium or larger effect size"
-  sprintf("exploratory comparisons between %d young and %d older adults %s, although several latent summaries were mathematically redundant", g[["young"]], g[["older"]], differences)
+  differences <- if (variability || kinetics) "differed by age" else "showed no medium or larger age difference"
+  r2 <- median(fantasia$incremental$r2_latent_from_hrv, na.rm = TRUE)
+  predicted <- if (is.finite(r2) && r2 < 0.5) "were only partly predicted" else "were largely predicted"
+  sprintf("in %d young and older adults, latent summaries %s and %s by conventional HRV metrics (median leave-one-out $R^2$ = %s)", sum(g), differences, predicted, num(r2))
 })
 
 abstract_exercise <- function(exercise) guarded("results/exercise.rds", {
   km <- exercise$km
-  sprintf("in %d exercise recordings, median recovery times, which are closely tied to the fitted time constants, were %s",
+  sprintf("in %d exercise recordings, median recovery times were %s",
           exercise$summary$n_usable,
           join_and(sprintf("%s (%s)", ifelse(is.finite(km$median), paste0(num(km$median, 0), " s"), "not estimable"),
                            ifelse(km$state == "p", "vagal-like", "sympathetic-like"))))

@@ -21,8 +21,8 @@ spearman <- function(a, b) { k <- is.finite(a) & is.finite(b); if (sum(k) < 5) N
 abstract_blockade <- function(blockade) guarded("results/blockade.rds", {
   if (!isTRUE(blockade$available)) return(NULL)
   at <- blockade_row(blockade, "atropine_high"); pr <- blockade_row(blockade, "propranolol")
-  sprintf("in a public pharmacological-blockade study (%d volunteers), atropine reduced the variability of the vagal-like drive to %s of saline whereas propranolol alone did not (%s), but the sympathetic-like drive also fell under atropine and did not follow muscle sympathetic nerve activity",
-          blockade$n_subjects, num(at$SD_p), num(pr$SD_p))
+  sprintf("atropine reduced vagal-like variability to %s of saline in %d volunteers, whereas propranolol did not (%s)",
+          num(at$SD_p), blockade$n_subjects, num(pr$SD_p))
 })
 
 narrate_blockade <- function(blockade, figure = "@fig-blockade") guarded("results/blockade.rds", {
